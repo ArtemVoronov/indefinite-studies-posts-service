@@ -9,6 +9,6 @@ server {
     server_name  localhost;
 
     location / {
-        proxy_pass http://postss-service-loadbalancer;
+        proxy_pass http://posts-service-loadbalancer;
     }
 }

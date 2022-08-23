@@ -64,7 +64,7 @@ func CreatePost(tx *sql.Tx, ctx context.Context, text string, topic string, auth
 	createDate := time.Now()
 	lastUpdateDate := time.Now()
 
-	err := tx.QueryRowContext(ctx, "INSERT INTO posts(text, topic, author_id, state, create_date, last_update_date) VALUES($1, $2, $3, $4, $5, $6, $7) RETURNING id",
+	err := tx.QueryRowContext(ctx, "INSERT INTO posts(text, topic, author_id, state, create_date, last_update_date) VALUES($1, $2, $3, $4, $5, $6) RETURNING id",
 		text, topic, authorId, state, createDate, lastUpdateDate).
 		Scan(&lastInsertId) // scan will release the connection
 	if err != nil {

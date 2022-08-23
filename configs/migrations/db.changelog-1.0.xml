@@ -32,7 +32,30 @@
                 <constraints nullable="false"/>
             </column>
         </createTable>
+        <createTable tableName="tags">
+            <column name="id" type="int" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="varchar(256)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="state" type="varchar(256)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createTable tableName="posts_and_tags">
+            <column name="post_id" type="int" autoIncrement="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="tag_id" type="int" autoIncrement="true">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="tags" columnNames="name, state" constraintName="tags_name_state_unique" />
+        <addPrimaryKey tableName="posts_and_tags" columnNames="post_id,tag_id" constraintName="PK_posts_and_tags" />
         <rollback>         
+            <dropTable tableName="posts_and_tags"/>
+            <dropTable tableName="tags"/>
             <dropTable tableName="posts"/>
         </rollback>
     </changeSet>
