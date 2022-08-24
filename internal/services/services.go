@@ -11,8 +11,9 @@ import (
 )
 
 type Services struct {
-	auth *auth.AuthService
-	db   *db.PostgreSQLService
+	authREST *auth.AuthService
+	authGRPC *auth.AuthGRPCService
+	db       *db.PostgreSQLService
 }
 
 var once sync.Once
@@ -33,13 +34,15 @@ func createServices() *Services {
 	}
 
 	return &Services{
-		auth: auth.CreateAuthService(client, utils.EnvVar("AUTH_SERVICE_BASE_URL")),
-		db:   db.CreatePostgreSQLService(),
+		authREST: auth.CreateAuthService(client, utils.EnvVar("AUTH_SERVICE_BASE_URL")),
+		authGRPC: auth.CreateAuthGRPCService(utils.EnvVar("AUTH_SERVICE_GRPC_HOST") + ":" + utils.EnvVar("AUTH_SERVICE_GRPC_PORT")),
+		db:       db.CreatePostgreSQLService(),
 	}
 }
 
 func (s *Services) Shutdown() {
-	s.auth.Shutdown()
+	s.authREST.Shutdown()
+	s.authGRPC.Shutdown()
 	s.db.Shutdown()
 }
 
@@ -47,6 +50,10 @@ func (s *Services) DB() *db.PostgreSQLService {
 	return s.db
 }
 
-func (s *Services) Auth() *auth.AuthService {
-	return s.auth
+func (s *Services) AuthREST() *auth.AuthService {
+	return s.authREST
+}
+
+func (s *Services) AuthGRPC() *auth.AuthGRPCService {
+	return s.authGRPC
 }

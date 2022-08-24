@@ -2,7 +2,9 @@
 1. Create appropriate `.env` file at the root of project, e.g.:
 ```
 #common settings
-APP_PORT=3005
+#common settings
+APP_HTTP_API_PORT=3005
+APP_GRPC_API_PORT=50051
 APP_MODE=debug # release or debug
 APP_SHUTDOWN_TIMEOUT_IN_SECONDS=5
 CORS='*'
@@ -24,6 +26,8 @@ HOST_API=192.168.0.18
 
 #external services
 AUTH_SERVICE_BASE_URL=http://192.168.0.18
+AUTH_SERVICE_GRPC_HOST=192.168.0.18
+AUTH_SERVICE_GRPC_PORT=50051
 
 #http client
 HTTP_CLIENT_REQUEST_TIMEOUT_IN_SECONDS=30 # connection time, any redirects, and reading the response body

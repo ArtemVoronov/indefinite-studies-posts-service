@@ -15,7 +15,8 @@ import (
 )
 
 func Start() {
-	app.Start(setup, shutdown, app.Host(), router())
+	app.LoadEnv()
+	app.StartHTTP(setup, shutdown, app.HostHTTP(), router())
 }
 
 func setup() {
@@ -74,7 +75,7 @@ func authReqired() gin.HandlerFunc {
 		}
 
 		token := authHeader[len("Bearer "):]
-		verificationResult, err := services.Instance().Auth().VerifyToken(token)
+		verificationResult, err := services.Instance().AuthGRPC().VerifyToken(token)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, "Internal Server Error")
