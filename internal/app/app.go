@@ -16,7 +16,7 @@ import (
 
 func Start() {
 	app.LoadEnv()
-	app.StartHTTP(setup, shutdown, app.HostHTTP(), router())
+	app.StartHTTP(setup, shutdown, app.HostHTTP(), createRestApi())
 }
 
 func setup() {
@@ -27,13 +27,11 @@ func shutdown() {
 	services.Instance().Shutdown()
 }
 
-func router() *gin.Engine {
+func createRestApi() *gin.Engine {
 	router := gin.Default()
 	gin.SetMode(app.Mode())
 	router.Use(app.Cors())
 	router.Use(gin.Logger())
-
-	// Recovery middleware recovers from any panics and writes a 500 if there was one.
 	router.Use(gin.CustomRecovery(func(c *gin.Context, recovered interface{}) {
 		if err, ok := recovered.(string); ok {
 			c.String(http.StatusInternalServerError, fmt.Sprintf("error: %s", err))
@@ -75,7 +73,7 @@ func authReqired() gin.HandlerFunc {
 		}
 
 		token := authHeader[len("Bearer "):]
-		verificationResult, err := services.Instance().AuthGRPC().VerifyToken(token)
+		verificationResult, err := services.Instance().Auth().VerifyToken(token)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, "Internal Server Error")

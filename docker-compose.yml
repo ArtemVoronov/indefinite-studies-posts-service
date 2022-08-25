@@ -30,6 +30,7 @@ services:
       replicas: 2
     ports:
       - "3009-3010:3005"
+      - "50055-50056:50051"
     depends_on:
       - liquibase
   
@@ -53,9 +54,21 @@ services:
     volumes:
     - ./configs/templates/nginx:/etc/nginx/templates
     ports:
-    - "83:80"
+    - "10004:80"
     environment:
     - HOST_API=${HOST_API}
+    depends_on:
+      - api
+
+  nginxGRPC:
+    image: nginx
+    volumes:
+      - ./configs/templates/nginxGRPC:/etc/nginx/templates
+      - ./configs/tls:/etc/nginx/certs
+    ports:
+      - "10005:1443"
+    environment:
+      - HOST_API=${HOST_API}
     depends_on:
       - api
 

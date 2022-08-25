@@ -6,3 +6,4 @@ config/*
 !migrations
 .env*
 coverage.out
+configs/tls

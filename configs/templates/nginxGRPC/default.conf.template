@@ -1,0 +1,15 @@
+upstream posts-grpc-service-loadbalancer {
+    server ${HOST_API}:50055;
+    server ${HOST_API}:50056;
+}
+
+server {
+    listen 1443 ssl http2;
+    ssl_certificate /etc/nginx/certs/server-cert.pem;
+    ssl_certificate_key /etc/nginx/certs/server-key.pem;
+    server_name  localhost;
+
+    location / {
+        grpc_pass grpcs://posts-grpc-service-loadbalancer;
+    }
+}
