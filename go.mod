@@ -3,7 +3,7 @@ module github.com/ArtemVoronov/indefinite-studies-posts-service
 go 1.18
 
 require (
-	github.com/ArtemVoronov/indefinite-studies-utils v0.0.0-20220825142935-b6e8038163c6
+	github.com/ArtemVoronov/indefinite-studies-utils v0.0.0-20220826035851-792c831985dd
 	github.com/gin-contrib/expvar v0.0.1
 	github.com/gin-gonic/gin v1.8.1
 )
