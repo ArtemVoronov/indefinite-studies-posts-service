@@ -74,20 +74,20 @@ func CreatePost(tx *sql.Tx, ctx context.Context, text string, topic string, auth
 	return lastInsertId, nil
 }
 
-func UpdatePost(tx *sql.Tx, ctx context.Context, id int, text string, topic string, authorId int, state string) error {
+func UpdatePost(tx *sql.Tx, ctx context.Context, id int, text string, topic string, authorId int) error {
 	lastUpdateDate := time.Now()
-	stmt, err := tx.PrepareContext(ctx, "UPDATE posts SET text = $2, topic = $3, author_id = $4, state = $5, last_update_date = $6 WHERE id = $1 and state != $7")
+	stmt, err := tx.PrepareContext(ctx, "UPDATE posts SET text = $2, topic = $3, author_id = $4, last_update_date = $5 WHERE id = $1 and state != $6")
 	if err != nil {
 		return fmt.Errorf("error at updating post, case after preparing statement: %s", err)
 	}
-	res, err := stmt.ExecContext(ctx, id, text, topic, authorId, state, lastUpdateDate, entities.POST_STATE_DELETED)
+	res, err := stmt.ExecContext(ctx, id, text, topic, authorId, lastUpdateDate, entities.POST_STATE_DELETED)
 	if err != nil {
-		return fmt.Errorf("error at updating post (Id: %d, Topic: '%s', AuthorId: '%d', State: '%s'), case after executing statement: %s", id, topic, authorId, state, err)
+		return fmt.Errorf("error at updating post (Id: %d, Topic: '%s', AuthorId: '%d'), case after executing statement: %s", id, topic, authorId, err)
 	}
 
 	affectedRowsCount, err := res.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("error at updating post (Id: %d, Topic: '%s', AuthorId: '%d', State: '%s'), case after counting affected rows: %s", id, topic, authorId, state, err)
+		return fmt.Errorf("error at updating post (Id: %d, Topic: '%s', AuthorId: '%d'), case after counting affected rows: %s", id, topic, authorId, err)
 	}
 	if affectedRowsCount == 0 {
 		return sql.ErrNoRows

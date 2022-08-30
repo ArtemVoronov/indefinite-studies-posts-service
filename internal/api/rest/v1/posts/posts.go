@@ -3,7 +3,6 @@ package posts
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -13,7 +12,6 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/queries"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api/validation"
-	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -36,7 +34,6 @@ type PostEditDTO struct {
 	Text     string `json:"text" binding:"required"`
 	Topic    string `json:"topic" binding:"required"`
 	AuthorId int    `json:"authorId" binding:"required"`
-	State    string `json:"state" binding:"required"`
 }
 
 type PostCreateDTO struct {
@@ -181,19 +178,8 @@ func UpdatePost(c *gin.Context) {
 		return
 	}
 
-	if post.State == entities.POST_STATE_DELETED {
-		c.JSON(http.StatusBadRequest, api.DELETE_VIA_PUT_REQUEST_IS_FODBIDDEN)
-		return
-	}
-
-	possiblePostStates := entities.GetPossiblePostStates()
-	if !utils.Contains(possiblePostStates, post.State) {
-		c.JSON(http.StatusBadRequest, fmt.Sprintf("Unable to update post. Wrong 'State' value. Possible values: %v", possiblePostStates))
-		return
-	}
-
 	err := services.Instance().DB().TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
-		err := queries.UpdatePost(tx, ctx, postId, post.Text, post.Topic, post.AuthorId, post.State)
+		err := queries.UpdatePost(tx, ctx, postId, post.Text, post.Topic, post.AuthorId)
 		return err
 	})()
 
