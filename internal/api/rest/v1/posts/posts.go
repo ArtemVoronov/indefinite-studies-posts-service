@@ -43,7 +43,6 @@ type PostCreateDTO struct {
 	Text     string `json:"text" binding:"required"`
 	Topic    string `json:"topic" binding:"required"`
 	AuthorId int    `json:"authorId" binding:"required"`
-	State    string `json:"state" binding:"required"`
 }
 
 func convertPosts(posts []entities.Post) []PostDTO {
@@ -145,19 +144,8 @@ func CreatePost(c *gin.Context) {
 		return
 	}
 
-	possiblePostStates := entities.GetPossiblePostStates()
-	if !utils.Contains(possiblePostStates, post.State) {
-		c.JSON(http.StatusBadRequest, fmt.Sprintf("Unable to create post. Wrong 'State' value. Possible values: %v", possiblePostStates))
-		return
-	}
-
-	if post.State == entities.POST_STATE_DELETED {
-		c.JSON(http.StatusBadRequest, api.DELETE_VIA_POST_REQUEST_IS_FODBIDDEN)
-		return
-	}
-
 	data, err := services.Instance().DB().Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
-		result, err := queries.CreatePost(tx, ctx, post.Text, post.Topic, post.AuthorId, post.State)
+		result, err := queries.CreatePost(tx, ctx, post.Text, post.Topic, post.AuthorId, entities.POST_STATE_NEW)
 		return result, err
 	})()
 
