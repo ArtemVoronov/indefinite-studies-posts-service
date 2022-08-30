@@ -42,6 +42,8 @@ func createRestApi() *gin.Engine {
 	v1 := router.Group("/api/v1")
 
 	v1.GET("/posts/ping", ping.Ping)
+	v1.GET("/posts", posts.GetPosts)
+	v1.GET("/posts/:id", posts.GetPost)
 
 	authorized := router.Group("/api/v1")
 	authorized.Use(app.AuthReqired(authenicate))
@@ -49,8 +51,6 @@ func createRestApi() *gin.Engine {
 		authorized.GET("/posts/debug/vars", expvar.Handler())
 		authorized.GET("/posts/safe-ping", ping.SafePing)
 
-		authorized.GET("/posts", posts.GetPosts)
-		authorized.GET("/posts/:id", posts.GetPost)
 		authorized.POST("/posts", posts.CreatePost)
 		authorized.PUT("/posts/:id", posts.UpdatePost)
 		authorized.DELETE("/posts/:id", posts.DeletePost)
