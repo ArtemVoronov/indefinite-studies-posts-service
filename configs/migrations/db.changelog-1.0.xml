@@ -19,6 +19,9 @@
             <column name="text" type="text">
                 <constraints nullable="false"/>
             </column>
+            <column name="preview_text" type="text">
+                <constraints nullable="false"/>
+            </column>
             <column name="topic" type="varchar(512)">
                 <constraints nullable="false"/>
             </column>
@@ -51,9 +54,35 @@
                 <constraints nullable="false"/>
             </column>
         </createTable>
+        <createTable tableName="comments">
+            <column name="id" type="int" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="author_id" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="post_id" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="text" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="linked_comment_id" type="int">
+            </column>
+            <column name="state" type="varchar(256)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="create_date" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_update_date" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
         <addUniqueConstraint tableName="tags" columnNames="name, state" constraintName="tags_name_state_unique" />
         <addPrimaryKey tableName="posts_and_tags" columnNames="post_id,tag_id" constraintName="PK_posts_and_tags" />
         <rollback>         
+            <dropTable tableName="comments"/>
             <dropTable tableName="posts_and_tags"/>
             <dropTable tableName="tags"/>
             <dropTable tableName="posts"/>
