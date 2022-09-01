@@ -158,15 +158,17 @@ func UpdatePost(c *gin.Context) {
 		return
 	}
 
-	if *post.State == entities.POST_STATE_DELETED {
-		c.JSON(http.StatusBadRequest, api.DELETE_VIA_PUT_REQUEST_IS_FODBIDDEN)
-		return
-	}
+	if post.State != nil {
+		if *post.State == entities.POST_STATE_DELETED {
+			c.JSON(http.StatusBadRequest, api.DELETE_VIA_PUT_REQUEST_IS_FODBIDDEN)
+			return
+		}
 
-	possibleStates := entities.GetPossiblePostStates()
-	if !utils.Contains(possibleStates, *post.State) {
-		c.JSON(http.StatusBadRequest, fmt.Sprintf("Unable to update post. Wrong 'State' value. Possible values: %v", possibleStates))
-		return
+		possibleStates := entities.GetPossiblePostStates()
+		if !utils.Contains(possibleStates, *post.State) {
+			c.JSON(http.StatusBadRequest, fmt.Sprintf("Unable to update post. Wrong 'State' value. Possible values: %v", possibleStates))
+			return
+		}
 	}
 
 	err := services.Instance().DB().TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {

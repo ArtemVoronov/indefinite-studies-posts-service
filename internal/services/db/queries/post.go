@@ -56,7 +56,7 @@ const (
 )
 
 func GetPosts(tx *sql.Tx, ctx context.Context, limit int, offset int) ([]entities.Post, error) {
-	var post []entities.Post
+	var posts []entities.Post
 	var (
 		id             int
 		authorId       int
@@ -70,23 +70,23 @@ func GetPosts(tx *sql.Tx, ctx context.Context, limit int, offset int) ([]entitie
 
 	rows, err := tx.QueryContext(ctx, GET_POSTS_QUERY, limit, offset, entities.POST_STATE_DELETED)
 	if err != nil {
-		return post, fmt.Errorf("error at loading post from db, case after Query: %s", err)
+		return posts, fmt.Errorf("error at loading posts  from db, case after Query: %s", err)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
 		err := rows.Scan(&id, &authorId, &text, &previewText, &topic, &state, &createDate, &lastUpdateDate)
 		if err != nil {
-			return post, fmt.Errorf("error at loading posts from db, case iterating and using rows.Scan: %s", err)
+			return posts, fmt.Errorf("error at loading posts from db, case iterating and using rows.Scan: %s", err)
 		}
-		post = append(post, entities.Post{Id: id, AuthorId: authorId, Text: text, PreviewText: previewText, Topic: topic, State: state, CreateDate: createDate, LastUpdateDate: lastUpdateDate})
+		posts = append(posts, entities.Post{Id: id, AuthorId: authorId, Text: text, PreviewText: previewText, Topic: topic, State: state, CreateDate: createDate, LastUpdateDate: lastUpdateDate})
 	}
 	err = rows.Err()
 	if err != nil {
-		return post, fmt.Errorf("error at loading posts from db, case after iterating: %s", err)
+		return posts, fmt.Errorf("error at loading posts from db, case after iterating: %s", err)
 	}
 
-	return post, nil
+	return posts, nil
 }
 
 func GetPost(tx *sql.Tx, ctx context.Context, id int) (entities.Post, error) {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/api/rest/v1/comments"
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/api/rest/v1/ping"
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/api/rest/v1/posts"
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services"
@@ -44,6 +45,7 @@ func createRestApi() *gin.Engine {
 	v1.GET("/posts/ping", ping.Ping)
 	v1.GET("/posts", posts.GetPosts)
 	v1.GET("/posts/:id", posts.GetPost)
+	v1.GET("/posts/:id/comments", comments.GetComments)
 
 	authorized := router.Group("/api/v1")
 	authorized.Use(app.AuthReqired(authenicate))
@@ -54,6 +56,10 @@ func createRestApi() *gin.Engine {
 		authorized.POST("/posts/", posts.CreatePost)
 		authorized.PUT("/posts/", posts.UpdatePost)
 		authorized.DELETE("/posts/", posts.DeletePost)
+
+		authorized.POST("/posts/:id/comments", comments.CreateComment)
+		authorized.PUT("/posts/:id/comments", comments.UpdateComment)
+		authorized.DELETE("/posts/:id/comments", comments.DeleteComment)
 	}
 
 	return router
