@@ -3,6 +3,7 @@ package posts
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -12,15 +13,17 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/queries"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api/validation"
+	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/utils"
 	"github.com/gin-gonic/gin"
 )
 
 type PostDTO struct {
-	Id       int
-	AuthorId int
-	Text     string
-	Topic    string
-	State    string
+	Id          int
+	AuthorId    int
+	Text        string
+	PreviewText string
+	Topic       string
+	State       string
 }
 
 type PostListDTO struct {
@@ -31,30 +34,23 @@ type PostListDTO struct {
 }
 
 type PostEditDTO struct {
-	Text     string `json:"text" binding:"required"`
-	Topic    string `json:"topic" binding:"required"`
-	AuthorId int    `json:"authorId" binding:"required"`
+	Id          *int    `json:"Id" binding:"required"`
+	AuthorId    *int    `json:"AuthorId,omitempty"`
+	Text        *string `json:"Text,omitempty"`
+	PreviewText *string `json:"PreviewText,omitempty"`
+	Topic       *string `json:"Topic,omitempty"`
+	State       *string `json:"State,omitempty"`
 }
 
 type PostCreateDTO struct {
-	Text     string `json:"text" binding:"required"`
-	Topic    string `json:"topic" binding:"required"`
-	AuthorId int    `json:"authorId" binding:"required"`
+	AuthorId    int    `json:"authorId" binding:"required"`
+	Text        string `json:"text" binding:"required"`
+	PreviewText string `json:"PreviewText" binding:"required"`
+	Topic       string `json:"topic" binding:"required"`
 }
 
-func convertPosts(posts []entities.Post) []PostDTO {
-	if posts == nil {
-		return make([]PostDTO, 0)
-	}
-	var result []PostDTO
-	for _, post := range posts {
-		result = append(result, convertPost(post))
-	}
-	return result
-}
-
-func convertPost(post entities.Post) PostDTO {
-	return PostDTO{Id: post.Id, Text: post.Text, Topic: post.Topic, AuthorId: post.AuthorId, State: post.State}
+type PostDeleteDTO struct {
+	Id int `json:"Id" binding:"required"`
 }
 
 func GetPosts(c *gin.Context) {
@@ -142,7 +138,7 @@ func CreatePost(c *gin.Context) {
 	}
 
 	data, err := services.Instance().DB().Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
-		result, err := queries.CreatePost(tx, ctx, post.Text, post.Topic, post.AuthorId, entities.POST_STATE_NEW)
+		result, err := queries.CreatePost(tx, ctx, toCreatePostParams(&post))
 		return result, err
 	})()
 
@@ -155,31 +151,26 @@ func CreatePost(c *gin.Context) {
 	c.JSON(http.StatusCreated, data)
 }
 
-// TODO: add optional field updating (field is not reqired and missed -> do not update it)
 func UpdatePost(c *gin.Context) {
-	postIdStr := c.Param("id")
-
-	if postIdStr == "" {
-		c.JSON(http.StatusBadRequest, "Missed ID")
-		return
-	}
-
-	var postId int
-	var parseErr error
-	if postId, parseErr = strconv.Atoi(postIdStr); parseErr != nil {
-		c.JSON(http.StatusBadRequest, api.ERROR_ID_WRONG_FORMAT)
-		return
-	}
-
 	var post PostEditDTO
-
 	if err := c.ShouldBindJSON(&post); err != nil {
 		validation.SendError(c, err)
 		return
 	}
 
+	if *post.State == entities.POST_STATE_DELETED {
+		c.JSON(http.StatusBadRequest, api.DELETE_VIA_PUT_REQUEST_IS_FODBIDDEN)
+		return
+	}
+
+	possibleStates := entities.GetPossiblePostStates()
+	if !utils.Contains(possibleStates, *post.State) {
+		c.JSON(http.StatusBadRequest, fmt.Sprintf("Unable to update post. Wrong 'State' value. Possible values: %v", possibleStates))
+		return
+	}
+
 	err := services.Instance().DB().TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
-		err := queries.UpdatePost(tx, ctx, postId, post.Text, post.Topic, post.AuthorId)
+		err := queries.UpdatePost(tx, ctx, toUpdatePostParams(&post))
 		return err
 	})()
 
@@ -197,22 +188,14 @@ func UpdatePost(c *gin.Context) {
 }
 
 func DeletePost(c *gin.Context) {
-	idStr := c.Param("id")
-
-	if idStr == "" {
-		c.JSON(http.StatusBadRequest, "Missed ID")
-		return
-	}
-
-	var id int
-	var parseErr error
-	if id, parseErr = strconv.Atoi(idStr); parseErr != nil {
-		c.JSON(http.StatusBadRequest, api.ERROR_ID_WRONG_FORMAT)
+	var post PostDeleteDTO
+	if err := c.ShouldBindJSON(&post); err != nil {
+		validation.SendError(c, err)
 		return
 	}
 
 	err := services.Instance().DB().TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
-		err := queries.DeletePost(tx, ctx, id)
+		err := queries.DeletePost(tx, ctx, post.Id)
 		return err
 	})()
 
@@ -227,4 +210,39 @@ func DeletePost(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, api.DONE)
+}
+
+func convertPosts(posts []entities.Post) []PostDTO {
+	if posts == nil {
+		return make([]PostDTO, 0)
+	}
+	var result []PostDTO
+	for _, post := range posts {
+		result = append(result, convertPost(post))
+	}
+	return result
+}
+
+func convertPost(post entities.Post) PostDTO {
+	return PostDTO{Id: post.Id, Text: post.Text, PreviewText: post.PreviewText, Topic: post.Topic, AuthorId: post.AuthorId, State: post.State}
+}
+
+func toUpdatePostParams(post *PostEditDTO) *queries.UpdatePostParams {
+	return &queries.UpdatePostParams{
+		Id:          post.Id,
+		AuthorId:    post.AuthorId,
+		Text:        post.Text,
+		PreviewText: post.PreviewText,
+		Topic:       post.Topic,
+		State:       post.State,
+	}
+}
+
+func toCreatePostParams(post *PostCreateDTO) *queries.CreatePostParams {
+	return &queries.CreatePostParams{
+		AuthorId:    post.AuthorId,
+		Text:        post.Text,
+		PreviewText: post.PreviewText,
+		Topic:       post.Topic,
+	}
 }

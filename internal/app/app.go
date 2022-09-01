@@ -51,9 +51,9 @@ func createRestApi() *gin.Engine {
 		authorized.GET("/posts/debug/vars", expvar.Handler())
 		authorized.GET("/posts/safe-ping", ping.SafePing)
 
-		authorized.POST("/posts", posts.CreatePost)
-		authorized.PUT("/posts/:id", posts.UpdatePost)
-		authorized.DELETE("/posts/:id", posts.DeletePost)
+		authorized.POST("/posts/", posts.CreatePost)
+		authorized.PUT("/posts/", posts.UpdatePost)
+		authorized.DELETE("/posts/", posts.DeletePost)
 	}
 
 	return router
