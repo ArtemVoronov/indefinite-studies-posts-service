@@ -330,10 +330,12 @@ func toCreatePostParams(post *PostCreateDTO) *queries.CreatePostParams {
 
 func toFeedPostDTO(post *entities.Post) *feed.FeedPostDTO {
 	return &feed.FeedPostDTO{
-		Id:          int32(post.Id),
-		AuthorId:    int32(post.AuthorId),
-		Text:        post.Text,
-		PreviewText: post.PreviewText,
-		State:       post.State,
+		Id:             int32(post.Id),
+		AuthorId:       int32(post.AuthorId),
+		Text:           post.Text,
+		PreviewText:    post.PreviewText,
+		State:          post.State,
+		CreateDate:     post.CreateDate,
+		LastUpdateDate: post.LastUpdateDate,
 	}
 }

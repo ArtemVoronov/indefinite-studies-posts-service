@@ -298,11 +298,13 @@ func toCreateCommentParams(comment *CommentCreateDTO) *queries.CreateCommentPara
 
 func toFeedCommentDTO(comment *entities.Comment) *feed.FeedCommentDTO {
 	result := &feed.FeedCommentDTO{
-		Id:       int32(comment.Id),
-		AuthorId: int32(comment.AuthorId),
-		PostId:   int32(comment.PostId),
-		Text:     comment.Text,
-		State:    comment.State,
+		Id:             int32(comment.Id),
+		AuthorId:       int32(comment.AuthorId),
+		PostId:         int32(comment.PostId),
+		Text:           comment.Text,
+		State:          comment.State,
+		CreateDate:     comment.CreateDate,
+		LastUpdateDate: comment.LastUpdateDate,
 	}
 
 	if comment.LinkedCommentId != nil {
