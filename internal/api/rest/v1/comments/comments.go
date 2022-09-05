@@ -13,6 +13,7 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/queries"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api/validation"
+	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/feed"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -101,15 +102,15 @@ func GetComments(c *gin.Context) {
 }
 
 func CreateComment(c *gin.Context) {
-	var comment CommentCreateDTO
+	var commentDTO CommentCreateDTO
 
-	if err := c.ShouldBindJSON(&comment); err != nil {
+	if err := c.ShouldBindJSON(&commentDTO); err != nil {
 		validation.SendError(c, err)
 		return
 	}
 
 	data, err := services.Instance().DB().Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
-		result, err := queries.CreateComment(tx, ctx, toCreateCommentParams(&comment))
+		result, err := queries.CreateComment(tx, ctx, toCreateCommentParams(&commentDTO))
 		return result, err
 	})()
 
@@ -119,31 +120,67 @@ func CreateComment(c *gin.Context) {
 		return
 	}
 
+	commentId, ok := data.(int)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, "Unable to create comment")
+		log.Printf("Unable to cast to 'int' : %s", api.ERROR_ASSERT_RESULT_TYPE)
+		return
+	}
+
+	data, err = services.Instance().DB().Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+		post, err := queries.GetComment(tx, ctx, commentId)
+		return post, err
+	})()
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
+		} else {
+			c.JSON(http.StatusInternalServerError, "Unable to update comment")
+			log.Printf("Unable to update comment: %s", err)
+		}
+		return
+	}
+
+	comment, ok := data.(entities.Comment)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, "Unable to update comment")
+		log.Printf("Unable to cast to 'entities.Comment': %s", api.ERROR_ASSERT_RESULT_TYPE)
+		return
+	}
+
+	errFeed := services.Instance().Feed().UpdateComment(toFeedCommentDTO(&comment))
+	if errFeed != nil {
+		c.JSON(http.StatusInternalServerError, "Unable to update comment")
+		log.Printf("Unable to update comment: %s", errFeed)
+		return
+	}
+
 	c.JSON(http.StatusCreated, data)
 }
 
 func UpdateComment(c *gin.Context) {
-	var comment CommentEditDTO
-	if err := c.ShouldBindJSON(&comment); err != nil {
+	var commentDTO CommentEditDTO
+	if err := c.ShouldBindJSON(&commentDTO); err != nil {
 		validation.SendError(c, err)
 		return
 	}
 
-	if comment.State != nil {
-		if *comment.State == entities.COMMENT_STATE_DELETED {
+	if commentDTO.State != nil {
+		if *commentDTO.State == entities.COMMENT_STATE_DELETED {
 			c.JSON(http.StatusBadRequest, api.DELETE_VIA_PUT_REQUEST_IS_FODBIDDEN)
 			return
 		}
 
 		possibleStates := entities.GetPossibleCommentStates()
-		if !utils.Contains(possibleStates, *comment.State) {
+		if !utils.Contains(possibleStates, *commentDTO.State) {
 			c.JSON(http.StatusBadRequest, fmt.Sprintf("Unable to update comment. Wrong 'State' value. Possible values: %v", possibleStates))
 			return
 		}
 	}
 
 	err := services.Instance().DB().TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
-		err := queries.UpdateComment(tx, ctx, toUpdateCommentParams(&comment))
+		err := queries.UpdateComment(tx, ctx, toUpdateCommentParams(&commentDTO))
 		return err
 	})()
 
@@ -157,28 +194,70 @@ func UpdateComment(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, api.DONE)
-}
-
-func DeleteComment(c *gin.Context) {
-	var comment CommentDeleteDTO
-	if err := c.ShouldBindJSON(&comment); err != nil {
-		validation.SendError(c, err)
-		return
-	}
-
-	err := services.Instance().DB().TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
-		err := queries.DeleteComment(tx, ctx, comment.Id)
-		return err
+	data, err := services.Instance().DB().Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+		post, err := queries.GetComment(tx, ctx, commentDTO.Id)
+		return post, err
 	})()
 
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
 		} else {
+			c.JSON(http.StatusInternalServerError, "Unable to update comment")
+			log.Printf("Unable to update comment: %s", err)
+		}
+		return
+	}
+
+	comment, ok := data.(entities.Comment)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, "Unable to update comment")
+		log.Printf("Unable to cast to 'entities.Comment': %s", api.ERROR_ASSERT_RESULT_TYPE)
+		return
+	}
+
+	errFeed := services.Instance().Feed().UpdateComment(toFeedCommentDTO(&comment))
+	if errFeed != nil {
+		c.JSON(http.StatusInternalServerError, "Unable to update comment")
+		log.Printf("Unable to update comment: %s", errFeed)
+		return
+	}
+
+	c.JSON(http.StatusOK, api.DONE)
+}
+
+func DeleteComment(c *gin.Context) {
+	var commentDTO CommentDeleteDTO
+	if err := c.ShouldBindJSON(&commentDTO); err != nil {
+		validation.SendError(c, err)
+		return
+	}
+
+	err := services.Instance().DB().TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+		err := queries.DeleteComment(tx, ctx, commentDTO.Id)
+		return err
+	})()
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			errFeed := services.Instance().Feed().DeleteComment(int32(commentDTO.Id))
+			if errFeed != nil {
+				c.JSON(http.StatusInternalServerError, "Unable to delete post")
+				log.Printf("Unable to delete post: %s", errFeed)
+				return
+			}
+			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
+		} else {
 			c.JSON(http.StatusInternalServerError, "Unable to delete comment")
 			log.Printf("Unable to delete comment: %s", err)
 		}
+		return
+	}
+
+	errFeed := services.Instance().Feed().DeleteComment(int32(commentDTO.Id))
+	if errFeed != nil {
+		c.JSON(http.StatusInternalServerError, "Unable to delete post")
+		log.Printf("Unable to delete post: %s", errFeed)
 		return
 	}
 
@@ -215,4 +294,19 @@ func toCreateCommentParams(comment *CommentCreateDTO) *queries.CreateCommentPara
 		LinkedCommentId: comment.LinkedCommentId,
 		Text:            comment.Text,
 	}
+}
+
+func toFeedCommentDTO(comment *entities.Comment) *feed.FeedCommentDTO {
+	result := &feed.FeedCommentDTO{
+		Id:       int32(comment.Id),
+		AuthorId: int32(comment.AuthorId),
+		PostId:   int32(comment.PostId),
+		Text:     comment.Text,
+		State:    comment.State,
+	}
+
+	if comment.LinkedCommentId != nil {
+		result.LinkedCommentId = int32(*comment.LinkedCommentId)
+	}
+	return result
 }

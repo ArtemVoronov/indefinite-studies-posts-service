@@ -13,6 +13,7 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/queries"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api/validation"
+	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/feed"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -74,14 +75,14 @@ func GetPosts(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to get posts")
-		log.Printf("Unable to get to posts : %s", err)
+		log.Printf("Unable to get posts: %s", err)
 		return
 	}
 
 	posts, ok := data.([]entities.Post)
 	if !ok {
 		c.JSON(http.StatusInternalServerError, "Unable to get posts")
-		log.Printf("Unable to get to posts : %s", api.ERROR_ASSERT_RESULT_TYPE)
+		log.Printf("Unable to get posts: %s", api.ERROR_ASSERT_RESULT_TYPE)
 		return
 	}
 
@@ -114,7 +115,7 @@ func GetPost(c *gin.Context) {
 			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
 		} else {
 			c.JSON(http.StatusInternalServerError, "Unable to get post")
-			log.Printf("Unable to get to post : %s", err)
+			log.Printf("Unable to get post: %s", err)
 		}
 		return
 	}
@@ -122,7 +123,7 @@ func GetPost(c *gin.Context) {
 	post, ok := data.(entities.Post)
 	if !ok {
 		c.JSON(http.StatusInternalServerError, "Unable to get post")
-		log.Printf("Unable to get to post : %s", api.ERROR_ASSERT_RESULT_TYPE)
+		log.Printf("Unable to get post: %s", api.ERROR_ASSERT_RESULT_TYPE)
 		return
 	}
 
@@ -130,15 +131,15 @@ func GetPost(c *gin.Context) {
 }
 
 func CreatePost(c *gin.Context) {
-	var post PostCreateDTO
+	var postDTO PostCreateDTO
 
-	if err := c.ShouldBindJSON(&post); err != nil {
+	if err := c.ShouldBindJSON(&postDTO); err != nil {
 		validation.SendError(c, err)
 		return
 	}
 
 	data, err := services.Instance().DB().Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
-		result, err := queries.CreatePost(tx, ctx, toCreatePostParams(&post))
+		result, err := queries.CreatePost(tx, ctx, toCreatePostParams(&postDTO))
 		return result, err
 	})()
 
@@ -148,31 +149,67 @@ func CreatePost(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, data)
+	postId, ok := data.(int)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, "Unable to create post")
+		log.Printf("Unable to cast to 'int' : %s", api.ERROR_ASSERT_RESULT_TYPE)
+		return
+	}
+
+	data, err = services.Instance().DB().Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+		post, err := queries.GetPost(tx, ctx, postId)
+		return post, err
+	})()
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
+		} else {
+			c.JSON(http.StatusInternalServerError, "Unable to create post")
+			log.Printf("Unable to create post: %s", err)
+		}
+		return
+	}
+
+	post, ok := data.(entities.Post)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, "Unable to create post")
+		log.Printf("Unable to cast to 'entities.Post': %s", api.ERROR_ASSERT_RESULT_TYPE)
+		return
+	}
+
+	errFeed := services.Instance().Feed().CreatePost(toFeedPostDTO(&post))
+	if errFeed != nil {
+		c.JSON(http.StatusInternalServerError, "Unable to create post")
+		log.Printf("Unable to create post: %s", errFeed)
+		return
+	}
+
+	c.JSON(http.StatusCreated, postId)
 }
 
 func UpdatePost(c *gin.Context) {
-	var post PostEditDTO
-	if err := c.ShouldBindJSON(&post); err != nil {
+	var postDTO PostEditDTO
+	if err := c.ShouldBindJSON(&postDTO); err != nil {
 		validation.SendError(c, err)
 		return
 	}
 
-	if post.State != nil {
-		if *post.State == entities.POST_STATE_DELETED {
+	if postDTO.State != nil {
+		if *postDTO.State == entities.POST_STATE_DELETED {
 			c.JSON(http.StatusBadRequest, api.DELETE_VIA_PUT_REQUEST_IS_FODBIDDEN)
 			return
 		}
 
 		possibleStates := entities.GetPossiblePostStates()
-		if !utils.Contains(possibleStates, *post.State) {
+		if !utils.Contains(possibleStates, *postDTO.State) {
 			c.JSON(http.StatusBadRequest, fmt.Sprintf("Unable to update post. Wrong 'State' value. Possible values: %v", possibleStates))
 			return
 		}
 	}
 
 	err := services.Instance().DB().TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
-		err := queries.UpdatePost(tx, ctx, toUpdatePostParams(&post))
+		err := queries.UpdatePost(tx, ctx, toUpdatePostParams(&postDTO))
 		return err
 	})()
 
@@ -183,6 +220,35 @@ func UpdatePost(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, "Unable to update post")
 			log.Printf("Unable to update post : %s", err)
 		}
+		return
+	}
+
+	data, err := services.Instance().DB().Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+		post, err := queries.GetPost(tx, ctx, *postDTO.Id)
+		return post, err
+	})()
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
+		} else {
+			c.JSON(http.StatusInternalServerError, "Unable to update post")
+			log.Printf("Unable to update post: %s", err)
+		}
+		return
+	}
+
+	post, ok := data.(entities.Post)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, "Unable to update post")
+		log.Printf("Unable to cast to 'entities.Post': %s", api.ERROR_ASSERT_RESULT_TYPE)
+		return
+	}
+
+	errFeed := services.Instance().Feed().UpdatePost(toFeedPostDTO(&post))
+	if errFeed != nil {
+		c.JSON(http.StatusInternalServerError, "Unable to update post")
+		log.Printf("Unable to update post: %s", errFeed)
 		return
 	}
 
@@ -203,11 +269,24 @@ func DeletePost(c *gin.Context) {
 
 	if err != nil {
 		if err == sql.ErrNoRows {
+			errFeed := services.Instance().Feed().DeletePost(int32(post.Id))
+			if errFeed != nil {
+				c.JSON(http.StatusInternalServerError, "Unable to delete post")
+				log.Printf("Unable to delete post: %s", errFeed)
+				return
+			}
 			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
 		} else {
 			c.JSON(http.StatusInternalServerError, "Unable to delete post")
 			log.Printf("Unable to delete post: %s", err)
 		}
+		return
+	}
+
+	errFeed := services.Instance().Feed().DeletePost(int32(post.Id))
+	if errFeed != nil {
+		c.JSON(http.StatusInternalServerError, "Unable to delete post")
+		log.Printf("Unable to delete post: %s", errFeed)
 		return
 	}
 
@@ -246,5 +325,15 @@ func toCreatePostParams(post *PostCreateDTO) *queries.CreatePostParams {
 		Text:        post.Text,
 		PreviewText: post.PreviewText,
 		Topic:       post.Topic,
+	}
+}
+
+func toFeedPostDTO(post *entities.Post) *feed.FeedPostDTO {
+	return &feed.FeedPostDTO{
+		Id:          int32(post.Id),
+		AuthorId:    int32(post.AuthorId),
+		Text:        post.Text,
+		PreviewText: post.PreviewText,
+		State:       post.State,
 	}
 }
