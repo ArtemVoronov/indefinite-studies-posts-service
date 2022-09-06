@@ -48,8 +48,8 @@ type CommentCreateDTO struct {
 }
 
 type CommentDeleteDTO struct {
-	Id     int `json:"Id" binding:"required"`
-	PostId int `json:"PostId" binding:"required"`
+	CommentId int `json:"CommentId" binding:"required"`
+	PostId    int `json:"PostId" binding:"required"`
 }
 
 func GetComments(c *gin.Context) {
@@ -235,13 +235,13 @@ func DeleteComment(c *gin.Context) {
 	}
 
 	err := services.Instance().DB().TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
-		err := queries.DeleteComment(tx, ctx, commentDTO.Id)
+		err := queries.DeleteComment(tx, ctx, commentDTO.CommentId)
 		return err
 	})()
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			errFeed := services.Instance().Feed().DeleteComment(int32(commentDTO.Id))
+			errFeed := services.Instance().Feed().DeleteComment(int32(commentDTO.PostId), int32(commentDTO.CommentId))
 			if errFeed != nil {
 				c.JSON(http.StatusInternalServerError, "Unable to delete post")
 				log.Printf("Unable to delete post: %s", errFeed)
@@ -255,7 +255,7 @@ func DeleteComment(c *gin.Context) {
 		return
 	}
 
-	errFeed := services.Instance().Feed().DeleteComment(int32(commentDTO.Id))
+	errFeed := services.Instance().Feed().DeleteComment(int32(commentDTO.PostId), int32(commentDTO.CommentId))
 	if errFeed != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to delete post")
 		log.Printf("Unable to delete post: %s", errFeed)
