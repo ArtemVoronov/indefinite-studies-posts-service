@@ -48,7 +48,8 @@ type CommentCreateDTO struct {
 }
 
 type CommentDeleteDTO struct {
-	Id int `json:"Id" binding:"required"`
+	Id     int `json:"Id" binding:"required"`
+	PostId int `json:"PostId" binding:"required"`
 }
 
 func GetComments(c *gin.Context) {
