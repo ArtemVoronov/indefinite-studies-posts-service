@@ -334,6 +334,7 @@ func toFeedPostDTO(post *entities.Post) *feed.FeedPostDTO {
 		AuthorId:       int32(post.AuthorId),
 		Text:           post.Text,
 		PreviewText:    post.PreviewText,
+		Topic:          post.Topic,
 		State:          post.State,
 		CreateDate:     post.CreateDate,
 		LastUpdateDate: post.LastUpdateDate,
