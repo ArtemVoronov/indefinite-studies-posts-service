@@ -137,23 +137,23 @@ func CreateComment(c *gin.Context) {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
 		} else {
-			c.JSON(http.StatusInternalServerError, "Unable to update comment")
-			log.Printf("Unable to update comment: %s", err)
+			c.JSON(http.StatusInternalServerError, "Unable to create comment")
+			log.Printf("Unable to create comment: %s", err)
 		}
 		return
 	}
 
 	comment, ok := data.(entities.Comment)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, "Unable to update comment")
+		c.JSON(http.StatusInternalServerError, "Unable to create comment")
 		log.Printf("Unable to cast to 'entities.Comment': %s", api.ERROR_ASSERT_RESULT_TYPE)
 		return
 	}
 
-	errFeed := services.Instance().Feed().UpdateComment(toFeedCommentDTO(&comment))
+	errFeed := services.Instance().Feed().CreateComment(toFeedCommentDTO(&comment))
 	if errFeed != nil {
-		c.JSON(http.StatusInternalServerError, "Unable to update comment")
-		log.Printf("Unable to update comment: %s", errFeed)
+		c.JSON(http.StatusInternalServerError, "Unable to create comment")
+		log.Printf("Unable to create comment: %s", errFeed)
 		return
 	}
 
