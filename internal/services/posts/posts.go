@@ -24,10 +24,10 @@ func (s *PostsService) Shutdown() error {
 	return s.client.Shutdown()
 }
 
-func (s *PostsService) CreatePost(postDTO *PostCreateDTO) (int, error) {
+func (s *PostsService) CreatePost(post *queries.CreatePostParams) (int, error) {
 	var postId int = -1
 	data, err := s.client.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
-		result, err := queries.CreatePost(tx, ctx, toCreatePostParams(postDTO))
+		result, err := queries.CreatePost(tx, ctx, post)
 		return result, err
 	})()
 
@@ -42,9 +42,9 @@ func (s *PostsService) CreatePost(postDTO *PostCreateDTO) (int, error) {
 	return postId, nil
 }
 
-func (s *PostsService) UpdatePost(postDTO *PostEditDTO) error {
+func (s *PostsService) UpdatePost(post *queries.UpdatePostParams) error {
 	return s.client.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
-		err := queries.UpdatePost(tx, ctx, toUpdatePostParams(postDTO))
+		err := queries.UpdatePost(tx, ctx, post)
 		return err
 	})()
 }
@@ -93,24 +93,4 @@ func (s *PostsService) GetPosts(offset int, limit int) ([]entities.Post, error) 
 
 func (s *PostsService) GetPostsByIds(ids []int) error {
 	return fmt.Errorf("NOT IMPLEMENTED")
-}
-
-func toUpdatePostParams(post *PostEditDTO) *queries.UpdatePostParams {
-	return &queries.UpdatePostParams{
-		Id:          post.Id,
-		AuthorId:    post.AuthorId,
-		Text:        post.Text,
-		PreviewText: post.PreviewText,
-		Topic:       post.Topic,
-		State:       post.State,
-	}
-}
-
-func toCreatePostParams(post *PostCreateDTO) *queries.CreatePostParams {
-	return &queries.CreatePostParams{
-		AuthorId:    post.AuthorId,
-		Text:        post.Text,
-		PreviewText: post.PreviewText,
-		Topic:       post.Topic,
-	}
 }

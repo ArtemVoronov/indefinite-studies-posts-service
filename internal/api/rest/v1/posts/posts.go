@@ -9,7 +9,7 @@ import (
 
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services"
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/entities"
-	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/posts"
+	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/queries"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api/validation"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/feed"
@@ -38,7 +38,7 @@ func GetPosts(c *gin.Context) {
 		return
 	}
 
-	result := &posts.PostListDTO{
+	result := &PostListDTO{
 		Data:   convertPosts(postsList),
 		Count:  len(postsList),
 		Offset: offset,
@@ -78,14 +78,14 @@ func GetPost(c *gin.Context) {
 }
 
 func CreatePost(c *gin.Context) {
-	var postDTO posts.PostCreateDTO
+	var postDTO PostCreateDTO
 
 	if err := c.ShouldBindJSON(&postDTO); err != nil {
 		validation.SendError(c, err)
 		return
 	}
 
-	postId, err := services.Instance().Posts().CreatePost(&postDTO)
+	postId, err := services.Instance().Posts().CreatePost(toCreatePostParams(&postDTO))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create post")
 		log.Printf("Unable to create post: %s", err)
@@ -110,7 +110,7 @@ func CreatePost(c *gin.Context) {
 }
 
 func UpdatePost(c *gin.Context) {
-	var postDTO posts.PostEditDTO
+	var postDTO PostEditDTO
 	if err := c.ShouldBindJSON(&postDTO); err != nil {
 		validation.SendError(c, err)
 		return
@@ -129,7 +129,7 @@ func UpdatePost(c *gin.Context) {
 		}
 	}
 
-	err := services.Instance().Posts().UpdatePost(&postDTO)
+	err := services.Instance().Posts().UpdatePost(toUpdatePostParams(&postDTO))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
@@ -158,7 +158,7 @@ func UpdatePost(c *gin.Context) {
 }
 
 func DeletePost(c *gin.Context) {
-	var post posts.PostDeleteDTO
+	var post PostDeleteDTO
 	if err := c.ShouldBindJSON(&post); err != nil {
 		validation.SendError(c, err)
 		return
@@ -192,19 +192,19 @@ func DeletePost(c *gin.Context) {
 	c.JSON(http.StatusOK, api.DONE)
 }
 
-func convertPosts(input []entities.Post) []posts.PostDTO {
+func convertPosts(input []entities.Post) []PostDTO {
 	if input == nil {
-		return make([]posts.PostDTO, 0)
+		return make([]PostDTO, 0)
 	}
-	var result []posts.PostDTO
+	var result []PostDTO
 	for _, p := range input {
 		result = append(result, convertPost(p))
 	}
 	return result
 }
 
-func convertPost(input entities.Post) posts.PostDTO {
-	return posts.PostDTO{Id: input.Id, Text: input.Text, PreviewText: input.PreviewText, Topic: input.Topic, AuthorId: input.AuthorId, State: input.State}
+func convertPost(input entities.Post) PostDTO {
+	return PostDTO{Id: input.Id, Text: input.Text, PreviewText: input.PreviewText, Topic: input.Topic, AuthorId: input.AuthorId, State: input.State}
 }
 
 func toFeedPostDTO(post *entities.Post) *feed.FeedPostDTO {
@@ -217,5 +217,25 @@ func toFeedPostDTO(post *entities.Post) *feed.FeedPostDTO {
 		State:          post.State,
 		CreateDate:     post.CreateDate,
 		LastUpdateDate: post.LastUpdateDate,
+	}
+}
+
+func toUpdatePostParams(post *PostEditDTO) *queries.UpdatePostParams {
+	return &queries.UpdatePostParams{
+		Id:          post.Id,
+		AuthorId:    post.AuthorId,
+		Text:        post.Text,
+		PreviewText: post.PreviewText,
+		Topic:       post.Topic,
+		State:       post.State,
+	}
+}
+
+func toCreatePostParams(post *PostCreateDTO) *queries.CreatePostParams {
+	return &queries.CreatePostParams{
+		AuthorId:    post.AuthorId,
+		Text:        post.Text,
+		PreviewText: post.PreviewText,
+		Topic:       post.Topic,
 	}
 }
