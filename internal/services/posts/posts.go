@@ -24,16 +24,36 @@ func (s *PostsService) Shutdown() error {
 	return s.client.Shutdown()
 }
 
-func (s *PostsService) CreatePost() error {
-	return fmt.Errorf("NOT IMPLEMENTED")
+func (s *PostsService) CreatePost(postDTO *PostCreateDTO) (int, error) {
+	var postId int = -1
+	data, err := s.client.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+		result, err := queries.CreatePost(tx, ctx, toCreatePostParams(postDTO))
+		return result, err
+	})()
+
+	if err != nil || data == -1 {
+		return postId, err
+	}
+
+	postId, ok := data.(int)
+	if !ok {
+		return postId, fmt.Errorf("unable to convert result into int")
+	}
+	return postId, nil
 }
 
-func (s *PostsService) UpdatePost() error {
-	return fmt.Errorf("NOT IMPLEMENTED")
+func (s *PostsService) UpdatePost(postDTO *PostEditDTO) error {
+	return s.client.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+		err := queries.UpdatePost(tx, ctx, toUpdatePostParams(postDTO))
+		return err
+	})()
 }
 
-func (s *PostsService) DeletePost() error {
-	return fmt.Errorf("NOT IMPLEMENTED")
+func (s *PostsService) DeletePost(postId int) error {
+	return s.client.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+		err := queries.DeletePost(tx, ctx, postId)
+		return err
+	})()
 }
 
 func (s *PostsService) GetPost(postId int) (entities.Post, error) {
@@ -55,10 +75,42 @@ func (s *PostsService) GetPost(postId int) (entities.Post, error) {
 	return result, nil
 }
 
-func (s *PostsService) GetPosts(offset int, limit int) error {
-	return fmt.Errorf("NOT IMPLEMENTED")
+func (s *PostsService) GetPosts(offset int, limit int) ([]entities.Post, error) {
+	data, err := s.client.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+		posts, err := queries.GetPosts(tx, ctx, limit, offset)
+		return posts, err
+	})()
+	if err != nil {
+		return nil, err
+	}
+
+	posts, ok := data.([]entities.Post)
+	if !ok {
+		return nil, fmt.Errorf("unable to convert result into []entities.Post")
+	}
+	return posts, nil
 }
 
 func (s *PostsService) GetPostsByIds(ids []int) error {
 	return fmt.Errorf("NOT IMPLEMENTED")
+}
+
+func toUpdatePostParams(post *PostEditDTO) *queries.UpdatePostParams {
+	return &queries.UpdatePostParams{
+		Id:          post.Id,
+		AuthorId:    post.AuthorId,
+		Text:        post.Text,
+		PreviewText: post.PreviewText,
+		Topic:       post.Topic,
+		State:       post.State,
+	}
+}
+
+func toCreatePostParams(post *PostCreateDTO) *queries.CreatePostParams {
+	return &queries.CreatePostParams{
+		AuthorId:    post.AuthorId,
+		Text:        post.Text,
+		PreviewText: post.PreviewText,
+		Topic:       post.Topic,
+	}
 }

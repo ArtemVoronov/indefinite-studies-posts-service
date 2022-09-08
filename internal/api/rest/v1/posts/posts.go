@@ -1,7 +1,6 @@
 package posts
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -10,49 +9,13 @@ import (
 
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services"
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/entities"
-	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/queries"
+	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/posts"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api/validation"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/feed"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/utils"
 	"github.com/gin-gonic/gin"
 )
-
-type PostDTO struct {
-	Id          int
-	AuthorId    int
-	Text        string
-	PreviewText string
-	Topic       string
-	State       string
-}
-
-type PostListDTO struct {
-	Count  int
-	Offset int
-	Limit  int
-	Data   []PostDTO
-}
-
-type PostEditDTO struct {
-	Id          *int    `json:"Id" binding:"required"`
-	AuthorId    *int    `json:"AuthorId,omitempty"`
-	Text        *string `json:"Text,omitempty"`
-	PreviewText *string `json:"PreviewText,omitempty"`
-	Topic       *string `json:"Topic,omitempty"`
-	State       *string `json:"State,omitempty"`
-}
-
-type PostCreateDTO struct {
-	AuthorId    int    `json:"authorId" binding:"required"`
-	Text        string `json:"text" binding:"required"`
-	PreviewText string `json:"PreviewText" binding:"required"`
-	Topic       string `json:"topic" binding:"required"`
-}
-
-type PostDeleteDTO struct {
-	Id int `json:"Id" binding:"required"`
-}
 
 func GetPosts(c *gin.Context) {
 	limitStr := c.DefaultQuery("limit", "50")
@@ -68,25 +31,20 @@ func GetPosts(c *gin.Context) {
 		offset = 0
 	}
 
-	data, err := services.Instance().DB().Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
-		posts, err := queries.GetPosts(tx, ctx, limit, offset)
-		return posts, err
-	})()
-
+	postsList, err := services.Instance().Posts().GetPosts(offset, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to get posts")
 		log.Printf("Unable to get posts: %s", err)
 		return
 	}
 
-	posts, ok := data.([]entities.Post)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, "Unable to get posts")
-		log.Printf("Unable to get posts: %s", api.ERROR_ASSERT_RESULT_TYPE)
-		return
+	result := &posts.PostListDTO{
+		Data:   convertPosts(postsList),
+		Count:  len(postsList),
+		Offset: offset,
+		Limit:  limit,
 	}
 
-	result := &PostListDTO{Data: convertPosts(posts), Count: len(posts), Offset: offset, Limit: limit}
 	c.JSON(http.StatusOK, result)
 }
 
@@ -120,28 +78,17 @@ func GetPost(c *gin.Context) {
 }
 
 func CreatePost(c *gin.Context) {
-	var postDTO PostCreateDTO
+	var postDTO posts.PostCreateDTO
 
 	if err := c.ShouldBindJSON(&postDTO); err != nil {
 		validation.SendError(c, err)
 		return
 	}
 
-	data, err := services.Instance().DB().Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
-		result, err := queries.CreatePost(tx, ctx, toCreatePostParams(&postDTO))
-		return result, err
-	})()
-
-	if err != nil || data == -1 {
+	postId, err := services.Instance().Posts().CreatePost(&postDTO)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create post")
-		log.Printf("Unable to create post : %s", err)
-		return
-	}
-
-	postId, ok := data.(int)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, "Unable to create post")
-		log.Printf("Unable to cast to 'int' : %s", api.ERROR_ASSERT_RESULT_TYPE)
+		log.Printf("Unable to create post: %s", err)
 		return
 	}
 
@@ -155,7 +102,7 @@ func CreatePost(c *gin.Context) {
 	errFeed := services.Instance().Feed().CreatePost(toFeedPostDTO(&post))
 	if errFeed != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create post")
-		log.Printf("Unable to create post: %s", errFeed)
+		log.Printf("Unable to send post to feed: %s", errFeed)
 		return
 	}
 
@@ -163,7 +110,7 @@ func CreatePost(c *gin.Context) {
 }
 
 func UpdatePost(c *gin.Context) {
-	var postDTO PostEditDTO
+	var postDTO posts.PostEditDTO
 	if err := c.ShouldBindJSON(&postDTO); err != nil {
 		validation.SendError(c, err)
 		return
@@ -182,11 +129,7 @@ func UpdatePost(c *gin.Context) {
 		}
 	}
 
-	err := services.Instance().DB().TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
-		err := queries.UpdatePost(tx, ctx, toUpdatePostParams(&postDTO))
-		return err
-	})()
-
+	err := services.Instance().Posts().UpdatePost(&postDTO)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
@@ -207,7 +150,7 @@ func UpdatePost(c *gin.Context) {
 	errFeed := services.Instance().Feed().UpdatePost(toFeedPostDTO(&post))
 	if errFeed != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to update post")
-		log.Printf("Unable to update post: %s", errFeed)
+		log.Printf("Unable to send post to feed: %s", errFeed)
 		return
 	}
 
@@ -215,16 +158,13 @@ func UpdatePost(c *gin.Context) {
 }
 
 func DeletePost(c *gin.Context) {
-	var post PostDeleteDTO
+	var post posts.PostDeleteDTO
 	if err := c.ShouldBindJSON(&post); err != nil {
 		validation.SendError(c, err)
 		return
 	}
 
-	err := services.Instance().DB().TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
-		err := queries.DeletePost(tx, ctx, post.Id)
-		return err
-	})()
+	err := services.Instance().Posts().DeletePost(post.Id)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -252,39 +192,19 @@ func DeletePost(c *gin.Context) {
 	c.JSON(http.StatusOK, api.DONE)
 }
 
-func convertPosts(posts []entities.Post) []PostDTO {
-	if posts == nil {
-		return make([]PostDTO, 0)
+func convertPosts(input []entities.Post) []posts.PostDTO {
+	if input == nil {
+		return make([]posts.PostDTO, 0)
 	}
-	var result []PostDTO
-	for _, post := range posts {
-		result = append(result, convertPost(post))
+	var result []posts.PostDTO
+	for _, p := range input {
+		result = append(result, convertPost(p))
 	}
 	return result
 }
 
-func convertPost(post entities.Post) PostDTO {
-	return PostDTO{Id: post.Id, Text: post.Text, PreviewText: post.PreviewText, Topic: post.Topic, AuthorId: post.AuthorId, State: post.State}
-}
-
-func toUpdatePostParams(post *PostEditDTO) *queries.UpdatePostParams {
-	return &queries.UpdatePostParams{
-		Id:          post.Id,
-		AuthorId:    post.AuthorId,
-		Text:        post.Text,
-		PreviewText: post.PreviewText,
-		Topic:       post.Topic,
-		State:       post.State,
-	}
-}
-
-func toCreatePostParams(post *PostCreateDTO) *queries.CreatePostParams {
-	return &queries.CreatePostParams{
-		AuthorId:    post.AuthorId,
-		Text:        post.Text,
-		PreviewText: post.PreviewText,
-		Topic:       post.Topic,
-	}
+func convertPost(input entities.Post) posts.PostDTO {
+	return posts.PostDTO{Id: input.Id, Text: input.Text, PreviewText: input.PreviewText, Topic: input.Topic, AuthorId: input.AuthorId, State: input.State}
 }
 
 func toFeedPostDTO(post *entities.Post) *feed.FeedPostDTO {
