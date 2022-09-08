@@ -66,11 +66,39 @@ func (s *PostsServiceServer) GetPostsStream(stream posts.PostsService_GetPostsSt
 }
 
 func (s *PostsServiceServer) GetComment(ctx context.Context, in *posts.GetCommentRequest) (*posts.GetCommentReply, error) {
-	return nil, fmt.Errorf("NOT IMPLEMENTED")
+	comment, err := services.Instance().Posts().GetComment(int(in.GetId()))
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf(api.PAGE_NOT_FOUND)
+		} else {
+			return nil, err
+		}
+	}
+	return toGetCommentReply(comment), nil
 }
 
 func (s *PostsServiceServer) GetComments(ctx context.Context, in *posts.GetCommentsRequest) (*posts.GetCommentsReply, error) {
-	return nil, fmt.Errorf("NOT IMPLEMENTED")
+	var commentsList []entities.Comment
+	var err error
+
+	commentsList, err = services.Instance().Posts().GetComments(int(in.GetPostId()), int(in.Offset), int(in.Limit))
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf(api.PAGE_NOT_FOUND)
+		} else {
+			return nil, err
+		}
+	}
+
+	result := &posts.GetCommentsReply{
+		Offset:   in.Offset,
+		Limit:    in.Limit,
+		Count:    int32(len(commentsList)),
+		Comments: toGetCommentReplies(commentsList),
+	}
+
+	return result, nil
 }
 
 func (s *PostsServiceServer) GetCommentsStream(stream posts.PostsService_GetCommentsStreamServer) error {
@@ -110,6 +138,15 @@ func toGetCommentReply(comment entities.Comment) *posts.GetCommentReply {
 		CreateDate:      timestamppb.New(comment.CreateDate),
 		LastUpdateDate:  timestamppb.New(comment.LastUpdateDate),
 	}
+}
+
+func toGetCommentReplies(input []entities.Comment) []*posts.GetCommentReply {
+	replies := []*posts.GetCommentReply{}
+	for _, p := range input {
+		reply := toGetCommentReply(p)
+		replies = append(replies, reply)
+	}
+	return replies
 }
 
 func toLinkedCommentId(val *int) int32 {

@@ -106,3 +106,70 @@ func (s *PostsService) GetPostsByIds(ids []int, offset int, limit int) ([]entiti
 	}
 	return posts, nil
 }
+
+func (s *PostsService) CreateComment(comment *queries.CreateCommentParams) (int, error) {
+	var commentId int = -1
+	data, err := s.client.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+		result, err := queries.CreateComment(tx, ctx, comment)
+		return result, err
+	})()
+
+	if err != nil || data == -1 {
+		return commentId, err
+	}
+
+	commentId, ok := data.(int)
+	if !ok {
+		return commentId, fmt.Errorf("unable to convert result into int")
+	}
+	return commentId, nil
+}
+
+func (s *PostsService) UpdateComment(comment *queries.UpdateCommentParams) error {
+	return s.client.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+		err := queries.UpdateComment(tx, ctx, comment)
+		return err
+	})()
+}
+
+func (s *PostsService) DeleteComment(commentId int) error {
+	return s.client.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+		err := queries.DeleteComment(tx, ctx, commentId)
+		return err
+	})()
+}
+
+func (s *PostsService) GetComment(commentId int) (entities.Comment, error) {
+	var result entities.Comment
+
+	data, err := s.client.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+		comment, err := queries.GetComment(tx, ctx, commentId)
+		return comment, err
+	})()
+	if err != nil {
+		return result, err
+	}
+
+	result, ok := data.(entities.Comment)
+	if !ok {
+		return result, fmt.Errorf("unable to convert result into entities.Comment")
+	}
+
+	return result, nil
+}
+
+func (s *PostsService) GetComments(postId int, offset int, limit int) ([]entities.Comment, error) {
+	data, err := s.client.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+		comments, err := queries.GetComments(tx, ctx, postId, limit, offset)
+		return comments, err
+	})()
+	if err != nil {
+		return nil, err
+	}
+
+	comments, ok := data.([]entities.Comment)
+	if !ok {
+		return nil, fmt.Errorf("unable to convert result into []entities.Comment")
+	}
+	return comments, nil
+}
