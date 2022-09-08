@@ -1,7 +1,6 @@
 package comments
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -17,40 +16,6 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/utils"
 	"github.com/gin-gonic/gin"
 )
-
-type CommentDTO struct {
-	Id              int
-	AuthorId        int
-	PostId          int
-	LinkedCommentId *int
-	Text            string
-	State           string
-}
-
-type CommentListDTO struct {
-	Count  int
-	Offset int
-	Limit  int
-	Data   []CommentDTO
-}
-
-type CommentEditDTO struct {
-	Id    int     `json:"Id" binding:"required"`
-	Text  *string `json:"Text,omitempty"`
-	State *string `json:"State,omitempty"`
-}
-
-type CommentCreateDTO struct {
-	AuthorId        int    `json:"AuthorId" binding:"required"`
-	PostId          int    `json:"PostId" binding:"required"`
-	Text            string `json:"Text" binding:"required"`
-	LinkedCommentId *int   `json:"LinkedCommentId,omitempty"`
-}
-
-type CommentDeleteDTO struct {
-	CommentId int `json:"CommentId" binding:"required"`
-	PostId    int `json:"PostId" binding:"required"`
-}
 
 func GetComments(c *gin.Context) {
 	postIdStr := c.Param("id")
@@ -80,25 +45,20 @@ func GetComments(c *gin.Context) {
 		offset = 0
 	}
 
-	data, err := services.Instance().DB().Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
-		comments, err := queries.GetComments(tx, ctx, postId, limit, offset)
-		return comments, err
-	})()
-
+	comments, err := services.Instance().Posts().GetComments(postId, offset, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to get comments")
-		log.Printf("Unable to get to comments : %s", err)
+		log.Printf("Unable to get comments: %s", err)
 		return
 	}
 
-	comments, ok := data.([]entities.Comment)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, "Unable to get comments")
-		log.Printf("Unable to get to comments : %s", api.ERROR_ASSERT_RESULT_TYPE)
-		return
+	result := &CommentListDTO{
+		Data:   convertComments(comments),
+		Count:  len(comments),
+		Offset: offset,
+		Limit:  limit,
 	}
 
-	result := &CommentListDTO{Data: convertComments(comments), Count: len(comments), Offset: offset, Limit: limit}
 	c.JSON(http.StatusOK, result)
 }
 
@@ -110,43 +70,17 @@ func CreateComment(c *gin.Context) {
 		return
 	}
 
-	data, err := services.Instance().DB().Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
-		result, err := queries.CreateComment(tx, ctx, toCreateCommentParams(&commentDTO))
-		return result, err
-	})()
-
-	if err != nil || data == -1 {
-		c.JSON(http.StatusInternalServerError, "Unable to create comment")
-		log.Printf("Unable to create comment : %s", err)
-		return
-	}
-
-	commentId, ok := data.(int)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, "Unable to create comment")
-		log.Printf("Unable to cast to 'int' : %s", api.ERROR_ASSERT_RESULT_TYPE)
-		return
-	}
-
-	data, err = services.Instance().DB().Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
-		post, err := queries.GetComment(tx, ctx, commentId)
-		return post, err
-	})()
-
+	commentId, err := services.Instance().Posts().CreateComment(toCreateCommentParams(&commentDTO))
 	if err != nil {
-		if err == sql.ErrNoRows {
-			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
-		} else {
-			c.JSON(http.StatusInternalServerError, "Unable to create comment")
-			log.Printf("Unable to create comment: %s", err)
-		}
+		c.JSON(http.StatusInternalServerError, "Unable to create comment")
+		log.Printf("Unable to create comment: %s", err)
 		return
 	}
 
-	comment, ok := data.(entities.Comment)
-	if !ok {
+	comment, err := services.Instance().Posts().GetComment(commentId)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create comment")
-		log.Printf("Unable to cast to 'entities.Comment': %s", api.ERROR_ASSERT_RESULT_TYPE)
+		log.Printf("Unable to get comment after create: %s", err)
 		return
 	}
 
@@ -157,7 +91,7 @@ func CreateComment(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, data)
+	c.JSON(http.StatusCreated, commentId)
 }
 
 func UpdateComment(c *gin.Context) {
@@ -180,26 +114,7 @@ func UpdateComment(c *gin.Context) {
 		}
 	}
 
-	err := services.Instance().DB().TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
-		err := queries.UpdateComment(tx, ctx, toUpdateCommentParams(&commentDTO))
-		return err
-	})()
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
-		} else {
-			c.JSON(http.StatusInternalServerError, "Unable to update comment")
-			log.Printf("Unable to update comment : %s", err)
-		}
-		return
-	}
-
-	data, err := services.Instance().DB().Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
-		post, err := queries.GetComment(tx, ctx, commentDTO.Id)
-		return post, err
-	})()
-
+	err := services.Instance().Posts().UpdateComment(toUpdateCommentParams(&commentDTO))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
@@ -210,10 +125,10 @@ func UpdateComment(c *gin.Context) {
 		return
 	}
 
-	comment, ok := data.(entities.Comment)
-	if !ok {
+	comment, err := services.Instance().Posts().GetComment(commentDTO.Id)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to update comment")
-		log.Printf("Unable to cast to 'entities.Comment': %s", api.ERROR_ASSERT_RESULT_TYPE)
+		log.Printf("Unable to get comment after update: %s", err)
 		return
 	}
 
@@ -234,10 +149,7 @@ func DeleteComment(c *gin.Context) {
 		return
 	}
 
-	err := services.Instance().DB().TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
-		err := queries.DeleteComment(tx, ctx, commentDTO.CommentId)
-		return err
-	})()
+	err := services.Instance().Posts().DeleteComment(commentDTO.CommentId)
 
 	if err != nil {
 		if err == sql.ErrNoRows {

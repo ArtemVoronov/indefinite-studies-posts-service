@@ -153,7 +153,7 @@ func UpdatePost(c *gin.Context) {
 		return
 	}
 
-	post, err := services.Instance().Posts().GetPost(*postDTO.Id)
+	post, err := services.Instance().Posts().GetPost(postDTO.Id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to update post")
 		log.Printf("Unable to get post after update: %s", err)

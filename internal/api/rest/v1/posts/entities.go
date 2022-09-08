@@ -17,7 +17,7 @@ type PostListDTO struct {
 }
 
 type PostEditDTO struct {
-	Id          *int    `json:"Id" binding:"required"`
+	Id          int     `json:"Id" binding:"required"`
 	AuthorId    *int    `json:"AuthorId,omitempty"`
 	Text        *string `json:"Text,omitempty"`
 	PreviewText *string `json:"PreviewText,omitempty"`
