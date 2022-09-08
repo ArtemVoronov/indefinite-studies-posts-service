@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/entities"
+	"github.com/lib/pq"
 )
 
 type CreatePostParams struct {
@@ -29,7 +30,14 @@ const (
 	GET_POSTS_QUERY = `SELECT 
 		id, author_id, text, preview_text, topic, state, create_date, last_update_date 
 	FROM posts 
-	WHERE state != $3 LIMIT $1 OFFSET $2`
+	WHERE state != $3 
+	LIMIT $1 OFFSET $2`
+
+	GET_POSTS_BY_IDS_QUERY = `SELECT 
+		id, author_id, text, preview_text, topic, state, create_date, last_update_date 
+	FROM posts 
+	WHERE state != $4 AND id = ANY($1)
+	LIMIT $2 OFFSET $3`
 
 	GET_POST_QUERY = `SELECT 
 		id, author_id, text, preview_text, topic, state, create_date, last_update_date 
@@ -70,20 +78,53 @@ func GetPosts(tx *sql.Tx, ctx context.Context, limit int, offset int) ([]entitie
 
 	rows, err := tx.QueryContext(ctx, GET_POSTS_QUERY, limit, offset, entities.POST_STATE_DELETED)
 	if err != nil {
-		return posts, fmt.Errorf("error at loading posts  from db, case after Query: %s", err)
+		return posts, fmt.Errorf("error at loading posts, case after Query: %s", err)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
 		err := rows.Scan(&id, &authorId, &text, &previewText, &topic, &state, &createDate, &lastUpdateDate)
 		if err != nil {
-			return posts, fmt.Errorf("error at loading posts from db, case iterating and using rows.Scan: %s", err)
+			return posts, fmt.Errorf("error at loading posts, case iterating and using rows.Scan: %s", err)
 		}
 		posts = append(posts, entities.Post{Id: id, AuthorId: authorId, Text: text, PreviewText: previewText, Topic: topic, State: state, CreateDate: createDate, LastUpdateDate: lastUpdateDate})
 	}
 	err = rows.Err()
 	if err != nil {
-		return posts, fmt.Errorf("error at loading posts from db, case after iterating: %s", err)
+		return posts, fmt.Errorf("error at loading posts, case after iterating: %s", err)
+	}
+
+	return posts, nil
+}
+
+func GetPostsByIds(tx *sql.Tx, ctx context.Context, ids []int, limit int, offset int) ([]entities.Post, error) {
+	var posts []entities.Post
+	var (
+		id             int
+		authorId       int
+		text           string
+		previewText    string
+		topic          string
+		state          string
+		createDate     time.Time
+		lastUpdateDate time.Time
+	)
+	rows, err := tx.QueryContext(ctx, GET_POSTS_BY_IDS_QUERY, pq.Array(ids), limit, offset, entities.POST_STATE_DELETED)
+	if err != nil {
+		return posts, fmt.Errorf("error at loading posts by ids, case after Query: %s", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		err := rows.Scan(&id, &authorId, &text, &previewText, &topic, &state, &createDate, &lastUpdateDate)
+		if err != nil {
+			return posts, fmt.Errorf("error at loading posts by ids, case iterating and using rows.Scan: %s", err)
+		}
+		posts = append(posts, entities.Post{Id: id, AuthorId: authorId, Text: text, PreviewText: previewText, Topic: topic, State: state, CreateDate: createDate, LastUpdateDate: lastUpdateDate})
+	}
+	err = rows.Err()
+	if err != nil {
+		return posts, fmt.Errorf("error at loading posts by ids, case after iterating: %s", err)
 	}
 
 	return posts, nil

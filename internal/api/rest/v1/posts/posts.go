@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"strconv"
 
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services"
@@ -20,6 +21,7 @@ import (
 func GetPosts(c *gin.Context) {
 	limitStr := c.DefaultQuery("limit", "50")
 	offsetStr := c.DefaultQuery("offset", "0")
+	idsStr := c.DefaultQuery("ids", "")
 
 	limit, err := strconv.Atoi(limitStr)
 	if err != nil {
@@ -31,7 +33,18 @@ func GetPosts(c *gin.Context) {
 		offset = 0
 	}
 
-	postsList, err := services.Instance().Posts().GetPosts(offset, limit)
+	var postsList []entities.Post
+	if idsStr != "" {
+		ids, castErr := convertIdsQueryParam(idsStr)
+		if castErr != nil {
+			c.JSON(http.StatusInternalServerError, "Unable to get posts by ids")
+			log.Printf("Error during casting 'ids' query param: %s", castErr)
+			return
+		}
+		postsList, err = services.Instance().Posts().GetPostsByIds(ids, offset, limit)
+	} else {
+		postsList, err = services.Instance().Posts().GetPosts(offset, limit)
+	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to get posts")
 		log.Printf("Unable to get posts: %s", err)
@@ -52,7 +65,7 @@ func GetPost(c *gin.Context) {
 	postIdStr := c.Param("id")
 
 	if postIdStr == "" {
-		c.JSON(http.StatusBadRequest, "Missed ID")
+		c.JSON(http.StatusBadRequest, "Missed 'id' query param")
 		return
 	}
 
@@ -238,4 +251,18 @@ func toCreatePostParams(post *PostCreateDTO) *queries.CreatePostParams {
 		PreviewText: post.PreviewText,
 		Topic:       post.Topic,
 	}
+}
+
+func convertIdsQueryParam(idsQueryParam string) ([]int, error) {
+	re := regexp.MustCompile(",")
+	tokens := re.Split(idsQueryParam, -1)
+	result := make([]int, 0, len(tokens))
+	for _, token := range tokens {
+		postId, parseErr := strconv.Atoi(token)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		result = append(result, postId)
+	}
+	return result, nil
 }

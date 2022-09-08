@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 
-	commentsGrpcApi "github.com/ArtemVoronov/indefinite-studies-posts-service/internal/api/grpc/v1/comments"
 	postsGrpcApi "github.com/ArtemVoronov/indefinite-studies-posts-service/internal/api/grpc/v1/posts"
 	commentsRestApi "github.com/ArtemVoronov/indefinite-studies-posts-service/internal/api/rest/v1/comments"
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/api/rest/v1/ping"
@@ -64,9 +63,9 @@ func createRestApi() *gin.Engine {
 		authorized.PUT("/posts/", postsRestApi.UpdatePost)
 		authorized.DELETE("/posts/", postsRestApi.DeletePost)
 
-		authorized.POST("/posts/:id/comments", commentsRestApi.CreateComment)
-		authorized.PUT("/posts/:id/comments", commentsRestApi.UpdateComment)
-		authorized.DELETE("/posts/:id/comments", commentsRestApi.DeleteComment)
+		authorized.POST("/posts/comments", commentsRestApi.CreateComment)
+		authorized.PUT("/posts/comments", commentsRestApi.UpdateComment)
+		authorized.DELETE("/posts/comments", commentsRestApi.DeleteComment)
 	}
 
 	return router
@@ -74,7 +73,6 @@ func createRestApi() *gin.Engine {
 
 func createGrpcApi(s *grpc.Server) {
 	postsGrpcApi.RegisterServiceServer(s)
-	commentsGrpcApi.RegisterServiceServer(s)
 }
 
 func authenicate(token string) (*auth.VerificationResult, error) {

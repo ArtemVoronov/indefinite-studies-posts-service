@@ -91,6 +91,18 @@ func (s *PostsService) GetPosts(offset int, limit int) ([]entities.Post, error) 
 	return posts, nil
 }
 
-func (s *PostsService) GetPostsByIds(ids []int) error {
-	return fmt.Errorf("NOT IMPLEMENTED")
+func (s *PostsService) GetPostsByIds(ids []int, offset int, limit int) ([]entities.Post, error) {
+	data, err := s.client.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+		posts, err := queries.GetPostsByIds(tx, ctx, ids, limit, offset)
+		return posts, err
+	})()
+	if err != nil {
+		return nil, err
+	}
+
+	posts, ok := data.([]entities.Post)
+	if !ok {
+		return nil, fmt.Errorf("unable to convert result into []entities.Post")
+	}
+	return posts, nil
 }

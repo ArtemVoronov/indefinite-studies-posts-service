@@ -27,3 +27,15 @@ func (s *PostsServiceServer) GetPosts(ctx context.Context, in *posts.GetPostsReq
 func (s *PostsServiceServer) GetPostsStream(stream posts.PostsService_GetPostsStreamServer) error {
 	return fmt.Errorf("NOT IMPLEMENTED")
 }
+
+func (s *PostsServiceServer) GetComment(ctx context.Context, in *posts.GetCommentRequest) (*posts.GetCommentReply, error) {
+	return nil, fmt.Errorf("NOT IMPLEMENTED")
+}
+
+func (s *PostsServiceServer) GetComments(ctx context.Context, in *posts.GetCommentsRequest) (*posts.GetCommentsReply, error) {
+	return nil, fmt.Errorf("NOT IMPLEMENTED")
+}
+
+func (s *PostsServiceServer) GetCommentsStream(stream posts.PostsService_GetCommentsStreamServer) error {
+	return fmt.Errorf("NOT IMPLEMENTED")
+}
