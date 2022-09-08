@@ -105,11 +105,7 @@ func GetPost(c *gin.Context) {
 		return
 	}
 
-	data, err := services.Instance().DB().Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
-		post, err := queries.GetPost(tx, ctx, postId)
-		return post, err
-	})()
-
+	post, err := services.Instance().Posts().GetPost(postId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
@@ -117,13 +113,6 @@ func GetPost(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, "Unable to get post")
 			log.Printf("Unable to get post: %s", err)
 		}
-		return
-	}
-
-	post, ok := data.(entities.Post)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, "Unable to get post")
-		log.Printf("Unable to get post: %s", api.ERROR_ASSERT_RESULT_TYPE)
 		return
 	}
 
@@ -156,25 +145,10 @@ func CreatePost(c *gin.Context) {
 		return
 	}
 
-	data, err = services.Instance().DB().Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
-		post, err := queries.GetPost(tx, ctx, postId)
-		return post, err
-	})()
-
+	post, err := services.Instance().Posts().GetPost(postId)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
-		} else {
-			c.JSON(http.StatusInternalServerError, "Unable to create post")
-			log.Printf("Unable to create post: %s", err)
-		}
-		return
-	}
-
-	post, ok := data.(entities.Post)
-	if !ok {
 		c.JSON(http.StatusInternalServerError, "Unable to create post")
-		log.Printf("Unable to cast to 'entities.Post': %s", api.ERROR_ASSERT_RESULT_TYPE)
+		log.Printf("Unable to get post after create: %s", err)
 		return
 	}
 
@@ -218,30 +192,15 @@ func UpdatePost(c *gin.Context) {
 			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
 		} else {
 			c.JSON(http.StatusInternalServerError, "Unable to update post")
-			log.Printf("Unable to update post : %s", err)
-		}
-		return
-	}
-
-	data, err := services.Instance().DB().Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
-		post, err := queries.GetPost(tx, ctx, *postDTO.Id)
-		return post, err
-	})()
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
-		} else {
-			c.JSON(http.StatusInternalServerError, "Unable to update post")
 			log.Printf("Unable to update post: %s", err)
 		}
 		return
 	}
 
-	post, ok := data.(entities.Post)
-	if !ok {
+	post, err := services.Instance().Posts().GetPost(*postDTO.Id)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to update post")
-		log.Printf("Unable to cast to 'entities.Post': %s", api.ERROR_ASSERT_RESULT_TYPE)
+		log.Printf("Unable to get post after update: %s", err)
 		return
 	}
 

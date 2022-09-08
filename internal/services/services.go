@@ -4,6 +4,7 @@ import (
 	"log"
 	"sync"
 
+	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/posts"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/app"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/auth"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/db"
@@ -12,9 +13,10 @@ import (
 )
 
 type Services struct {
-	auth *auth.AuthGRPCService
-	feed *feed.FeedBuilderGRPCService
-	db   *db.PostgreSQLService
+	auth  *auth.AuthGRPCService
+	feed  *feed.FeedBuilderGRPCService
+	db    *db.PostgreSQLService
+	posts *posts.PostsService
 }
 
 var once sync.Once
@@ -39,10 +41,13 @@ func createServices() *Services {
 		log.Fatalf("unable to load TLS credentials")
 	}
 
+	db := db.CreatePostgreSQLService()
+
 	return &Services{
-		auth: auth.CreateAuthGRPCService(utils.EnvVar("AUTH_SERVICE_GRPC_HOST")+":"+utils.EnvVar("AUTH_SERVICE_GRPC_PORT"), &authcreds),
-		feed: feed.CreateFeedBuilderGRPCService(utils.EnvVar("FEED_SERVICE_GRPC_HOST")+":"+utils.EnvVar("FEED_SERVICE_GRPC_PORT"), &feedcreds),
-		db:   db.CreatePostgreSQLService(),
+		auth:  auth.CreateAuthGRPCService(utils.EnvVar("AUTH_SERVICE_GRPC_HOST")+":"+utils.EnvVar("AUTH_SERVICE_GRPC_PORT"), &authcreds),
+		feed:  feed.CreateFeedBuilderGRPCService(utils.EnvVar("FEED_SERVICE_GRPC_HOST")+":"+utils.EnvVar("FEED_SERVICE_GRPC_PORT"), &feedcreds),
+		db:    db,
+		posts: posts.CreatePostsService(db),
 	}
 }
 
@@ -50,6 +55,7 @@ func (s *Services) Shutdown() {
 	s.feed.Shutdown()
 	s.auth.Shutdown()
 	s.db.Shutdown()
+	s.posts.Shutdown()
 }
 
 func (s *Services) DB() *db.PostgreSQLService {
@@ -62,4 +68,8 @@ func (s *Services) Auth() *auth.AuthGRPCService {
 
 func (s *Services) Feed() *feed.FeedBuilderGRPCService {
 	return s.feed
+}
+
+func (s *Services) Posts() *posts.PostsService {
+	return s.posts
 }
