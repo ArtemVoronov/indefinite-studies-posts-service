@@ -9,6 +9,7 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/entities"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/posts"
+	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -38,7 +39,7 @@ func (s *PostsServiceServer) GetPosts(ctx context.Context, in *posts.GetPostsReq
 	var err error
 
 	if len(in.GetIds()) > 0 {
-		postsList, err = services.Instance().Posts().GetPostsByIds(toInt(in.GetIds()), int(in.Offset), int(in.Limit))
+		postsList, err = services.Instance().Posts().GetPostsByIds(utils.Int32SliceToIntSlice(in.GetIds()), int(in.Offset), int(in.Limit))
 	} else {
 		postsList, err = services.Instance().Posts().GetPosts(int(in.Offset), int(in.Limit))
 	}
@@ -132,7 +133,7 @@ func toGetCommentReply(comment entities.Comment) *posts.GetCommentReply {
 		Id:              int32(comment.Id),
 		AuthorId:        int32(comment.AuthorId),
 		PostId:          int32(comment.PostId),
-		LinkedCommentId: toLinkedCommentId(comment.LinkedCommentId),
+		LinkedCommentId: utils.IntPtrToInt32(comment.LinkedCommentId),
 		Text:            comment.Text,
 		State:           comment.State,
 		CreateDate:      timestamppb.New(comment.CreateDate),
@@ -147,20 +148,4 @@ func toGetCommentReplies(input []entities.Comment) []*posts.GetCommentReply {
 		replies = append(replies, reply)
 	}
 	return replies
-}
-
-func toLinkedCommentId(val *int) int32 {
-	if val == nil {
-		return 0
-	}
-	result := int32(*val)
-	return result
-}
-
-func toInt(input []int32) []int {
-	result := make([]int, len(input))
-	for i := range result {
-		result[i] = int(input[i])
-	}
-	return result
 }
