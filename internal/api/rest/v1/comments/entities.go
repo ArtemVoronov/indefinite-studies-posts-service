@@ -17,9 +17,10 @@ type CommentListDTO struct {
 }
 
 type CommentEditDTO struct {
-	Id    int     `json:"Id" binding:"required"`
-	Text  *string `json:"Text,omitempty"`
-	State *string `json:"State,omitempty"`
+	Id       int     `json:"Id" binding:"required"`
+	Text     *string `json:"Text,omitempty"`
+	State    *string `json:"State,omitempty"`
+	AuthorId int     `json:"AuthorId" binding:"required"`
 }
 
 type CommentCreateDTO struct {

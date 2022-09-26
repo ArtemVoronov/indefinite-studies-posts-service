@@ -12,6 +12,7 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/queries"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api/validation"
+	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/app"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/feed"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/utils"
 	"github.com/gin-gonic/gin"
@@ -98,6 +99,12 @@ func UpdateComment(c *gin.Context) {
 	var commentDTO CommentEditDTO
 	if err := c.ShouldBindJSON(&commentDTO); err != nil {
 		validation.SendError(c, err)
+		return
+	}
+
+	if !app.IsSameUserOrHasOwnerRole(c, commentDTO.AuthorId) {
+		c.JSON(http.StatusForbidden, "Forbidden")
+		log.Printf("Forbidden to update comment. Author ID: %v", commentDTO.AuthorId)
 		return
 	}
 

@@ -51,7 +51,7 @@ func createRestApi(logger *logrus.Logger) *gin.Engine {
 	router := gin.Default()
 	gin.SetMode(app.Mode())
 	router.Use(app.Cors())
-	router.Use(app.JSONLogMiddleware(logger))
+	router.Use(app.NewLoggerMiddleware(logger))
 	router.Use(gin.CustomRecovery(func(c *gin.Context, recovered interface{}) {
 		if err, ok := recovered.(string); ok {
 			c.String(http.StatusInternalServerError, fmt.Sprintf("error: %s", err))
@@ -59,7 +59,6 @@ func createRestApi(logger *logrus.Logger) *gin.Engine {
 		c.AbortWithStatus(http.StatusInternalServerError)
 	}))
 
-	// TODO: add permission controller by user role and user state
 	v1 := router.Group("/api/v1")
 
 	v1.GET("/posts/ping", ping.Ping)
@@ -70,16 +69,16 @@ func createRestApi(logger *logrus.Logger) *gin.Engine {
 	authorized := router.Group("/api/v1")
 	authorized.Use(app.AuthReqired(authenicate))
 	{
-		authorized.GET("/posts/debug/vars", expvar.Handler())
-		authorized.GET("/posts/safe-ping", ping.SafePing)
+		authorized.GET("/posts/debug/vars", app.RequiredOwnerRole(), expvar.Handler())
+		authorized.GET("/posts/safe-ping", app.RequiredOwnerRole(), ping.SafePing)
 
-		authorized.POST("/posts/", postsRestApi.CreatePost)
-		authorized.PUT("/posts/", postsRestApi.UpdatePost)
-		authorized.DELETE("/posts/", postsRestApi.DeletePost)
+		authorized.POST("/posts/", app.RequiredOwnerRole(), postsRestApi.CreatePost)
+		authorized.PUT("/posts/", app.RequiredOwnerRole(), postsRestApi.UpdatePost)
+		authorized.DELETE("/posts/", app.RequiredOwnerRole(), postsRestApi.DeletePost)
 
 		authorized.POST("/posts/comments", commentsRestApi.CreateComment)
 		authorized.PUT("/posts/comments", commentsRestApi.UpdateComment)
-		authorized.DELETE("/posts/comments", commentsRestApi.DeleteComment)
+		authorized.DELETE("/posts/comments", app.RequiredOwnerRole(), commentsRestApi.DeleteComment)
 	}
 
 	return router
