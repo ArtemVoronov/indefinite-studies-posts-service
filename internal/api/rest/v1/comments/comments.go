@@ -102,13 +102,18 @@ func UpdateComment(c *gin.Context) {
 		return
 	}
 
-	if !app.IsSameUserOrHasOwnerRole(c, commentDTO.AuthorId) {
+	if !app.IsSameUser(c, commentDTO.AuthorId) && !app.HasOwnerRole(c) {
 		c.JSON(http.StatusForbidden, "Forbidden")
 		log.Printf("Forbidden to update comment. Author ID: %v", commentDTO.AuthorId)
 		return
 	}
 
 	if commentDTO.State != nil {
+		if !app.HasOwnerRole(c) {
+			c.JSON(http.StatusForbidden, "Forbidden")
+			log.Printf("Forbidden to update comment state. Author ID: %v", commentDTO.AuthorId)
+			return
+		}
 		if *commentDTO.State == entities.COMMENT_STATE_DELETED {
 			c.JSON(http.StatusBadRequest, api.DELETE_VIA_PUT_REQUEST_IS_FODBIDDEN)
 			return
