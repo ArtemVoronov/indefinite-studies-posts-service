@@ -1,11 +1,11 @@
 package services
 
 import (
-	"log"
 	"sync"
 
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/posts"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/app"
+	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/log"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/auth"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/db"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/feed"
@@ -34,11 +34,11 @@ func Instance() *Services {
 func createServices() *Services {
 	authcreds, err := app.LoadTLSCredentialsForClient(utils.EnvVar("AUTH_SERVICE_CLIENT_TLS_CERT_PATH"))
 	if err != nil {
-		log.Fatalf("unable to load TLS credentials")
+		log.Fatalf("unable to load TLS credentials: %s", err)
 	}
 	feedcreds, err := app.LoadTLSCredentialsForClient(utils.EnvVar("FEED_SERVICE_CLIENT_TLS_CERT_PATH"))
 	if err != nil {
-		log.Fatalf("unable to load TLS credentials")
+		log.Fatalf("unable to load TLS credentials: %s", err)
 	}
 
 	db := db.CreatePostgreSQLService()

@@ -3,7 +3,6 @@ package comments
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api/validation"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/app"
+	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/log"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/feed"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/utils"
 	"github.com/gin-gonic/gin"
@@ -49,7 +49,7 @@ func GetComments(c *gin.Context) {
 	comments, err := services.Instance().Posts().GetComments(postId, offset, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to get comments")
-		log.Printf("Unable to get comments: %s", err)
+		log.Error("Unable to get comments", err.Error())
 		return
 	}
 
@@ -74,21 +74,21 @@ func CreateComment(c *gin.Context) {
 	commentId, err := services.Instance().Posts().CreateComment(toCreateCommentParams(&commentDTO))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create comment")
-		log.Printf("Unable to create comment: %s", err)
+		log.Error("Unable to create comment", err.Error())
 		return
 	}
 
 	comment, err := services.Instance().Posts().GetComment(commentId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create comment")
-		log.Printf("Unable to get comment after create: %s", err)
+		log.Error("Unable to get comment after creation", err.Error())
 		return
 	}
 
-	errFeed := services.Instance().Feed().CreateComment(toFeedCommentDTO(&comment))
-	if errFeed != nil {
+	err = services.Instance().Feed().CreateComment(toFeedCommentDTO(&comment))
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create comment")
-		log.Printf("Unable to create comment: %s", errFeed)
+		log.Error("Unable to create comment at feed servuce", err.Error())
 		return
 	}
 
@@ -104,14 +104,14 @@ func UpdateComment(c *gin.Context) {
 
 	if !app.IsSameUser(c, commentDTO.AuthorId) && !app.HasOwnerRole(c) {
 		c.JSON(http.StatusForbidden, "Forbidden")
-		log.Printf("Forbidden to update comment. Author ID: %v", commentDTO.AuthorId)
+		log.Info(fmt.Sprintf("Forbidden to update comment. Author ID: %v", commentDTO.AuthorId))
 		return
 	}
 
 	if commentDTO.State != nil {
 		if !app.HasOwnerRole(c) {
 			c.JSON(http.StatusForbidden, "Forbidden")
-			log.Printf("Forbidden to update comment state. Author ID: %v", commentDTO.AuthorId)
+			log.Info(fmt.Sprintf("Forbidden to update comment state. Author ID: %v", commentDTO.AuthorId))
 			return
 		}
 		if *commentDTO.State == entities.COMMENT_STATE_DELETED {
@@ -132,7 +132,7 @@ func UpdateComment(c *gin.Context) {
 			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
 		} else {
 			c.JSON(http.StatusInternalServerError, "Unable to update comment")
-			log.Printf("Unable to update comment: %s", err)
+			log.Error("Unable to update comment", err.Error())
 		}
 		return
 	}
@@ -140,14 +140,14 @@ func UpdateComment(c *gin.Context) {
 	comment, err := services.Instance().Posts().GetComment(commentDTO.Id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to update comment")
-		log.Printf("Unable to get comment after update: %s", err)
+		log.Error("Unable to get comment after updating", err.Error())
 		return
 	}
 
-	errFeed := services.Instance().Feed().UpdateComment(toFeedCommentDTO(&comment))
-	if errFeed != nil {
+	err = services.Instance().Feed().UpdateComment(toFeedCommentDTO(&comment))
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to update comment")
-		log.Printf("Unable to update comment: %s", errFeed)
+		log.Error("Unable to update comment in feed service", err.Error())
 		return
 	}
 
@@ -167,22 +167,22 @@ func DeleteComment(c *gin.Context) {
 		if err == sql.ErrNoRows {
 			errFeed := services.Instance().Feed().DeleteComment(int32(commentDTO.PostId), int32(commentDTO.CommentId))
 			if errFeed != nil {
-				c.JSON(http.StatusInternalServerError, "Unable to delete post")
-				log.Printf("Unable to delete post: %s", errFeed)
+				c.JSON(http.StatusInternalServerError, "Unable to delete comment")
+				log.Error("Unable to delete comment from feed service", errFeed.Error())
 				return
 			}
 			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
 		} else {
 			c.JSON(http.StatusInternalServerError, "Unable to delete comment")
-			log.Printf("Unable to delete comment: %s", err)
+			log.Error("Unable to delete comment", err.Error())
 		}
 		return
 	}
 
 	errFeed := services.Instance().Feed().DeleteComment(int32(commentDTO.PostId), int32(commentDTO.CommentId))
 	if errFeed != nil {
-		c.JSON(http.StatusInternalServerError, "Unable to delete post")
-		log.Printf("Unable to delete post: %s", errFeed)
+		c.JSON(http.StatusInternalServerError, "Unable to delete comment")
+		log.Error("Unable to delete comment from feed service", errFeed.Error())
 		return
 	}
 

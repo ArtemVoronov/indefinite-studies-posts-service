@@ -3,7 +3,6 @@ package posts
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -13,6 +12,7 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/queries"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api/validation"
+	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/log"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/feed"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/utils"
 	"github.com/gin-gonic/gin"
@@ -38,7 +38,7 @@ func GetPosts(c *gin.Context) {
 		ids, castErr := convertIdsQueryParam(idsStr)
 		if castErr != nil {
 			c.JSON(http.StatusInternalServerError, "Unable to get posts by ids")
-			log.Printf("Error during casting 'ids' query param: %s", castErr)
+			log.Error("Error during casting 'ids' query param", castErr.Error())
 			return
 		}
 		postsList, err = services.Instance().Posts().GetPostsByIds(ids, offset, limit)
@@ -47,7 +47,7 @@ func GetPosts(c *gin.Context) {
 	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to get posts")
-		log.Printf("Unable to get posts: %s", err)
+		log.Error("Unable to get posts", err.Error())
 		return
 	}
 
@@ -82,7 +82,7 @@ func GetPost(c *gin.Context) {
 			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
 		} else {
 			c.JSON(http.StatusInternalServerError, "Unable to get post")
-			log.Printf("Unable to get post: %s", err)
+			log.Error("Unable to get post", err.Error())
 		}
 		return
 	}
@@ -101,21 +101,21 @@ func CreatePost(c *gin.Context) {
 	postId, err := services.Instance().Posts().CreatePost(toCreatePostParams(&postDTO))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create post")
-		log.Printf("Unable to create post: %s", err)
+		log.Error("Unable to create post", err.Error())
 		return
 	}
 
 	post, err := services.Instance().Posts().GetPost(postId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create post")
-		log.Printf("Unable to get post after create: %s", err)
+		log.Error("Unable to get post after creation", err.Error())
 		return
 	}
 
-	errFeed := services.Instance().Feed().CreatePost(toFeedPostDTO(&post))
-	if errFeed != nil {
+	err = services.Instance().Feed().CreatePost(toFeedPostDTO(&post))
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create post")
-		log.Printf("Unable to send post to feed: %s", errFeed)
+		log.Error("Unable to create post at feed service", err.Error())
 		return
 	}
 
@@ -148,7 +148,7 @@ func UpdatePost(c *gin.Context) {
 			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
 		} else {
 			c.JSON(http.StatusInternalServerError, "Unable to update post")
-			log.Printf("Unable to update post: %s", err)
+			log.Error("Unable to update post", err.Error())
 		}
 		return
 	}
@@ -156,14 +156,14 @@ func UpdatePost(c *gin.Context) {
 	post, err := services.Instance().Posts().GetPost(postDTO.Id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to update post")
-		log.Printf("Unable to get post after update: %s", err)
+		log.Error("Unable to get post after updating", err.Error())
 		return
 	}
 
-	errFeed := services.Instance().Feed().UpdatePost(toFeedPostDTO(&post))
-	if errFeed != nil {
+	err = services.Instance().Feed().UpdatePost(toFeedPostDTO(&post))
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to update post")
-		log.Printf("Unable to send post to feed: %s", errFeed)
+		log.Error("Unable to update post at feed service", err.Error())
 		return
 	}
 
@@ -184,21 +184,21 @@ func DeletePost(c *gin.Context) {
 			errFeed := services.Instance().Feed().DeletePost(int32(post.Id))
 			if errFeed != nil {
 				c.JSON(http.StatusInternalServerError, "Unable to delete post")
-				log.Printf("Unable to delete post: %s", errFeed)
+				log.Error("Unable to delete post at feed service", errFeed.Error())
 				return
 			}
 			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
 		} else {
 			c.JSON(http.StatusInternalServerError, "Unable to delete post")
-			log.Printf("Unable to delete post: %s", err)
+			log.Error("Unable to delete post", err.Error())
 		}
 		return
 	}
 
-	errFeed := services.Instance().Feed().DeletePost(int32(post.Id))
-	if errFeed != nil {
+	err = services.Instance().Feed().DeletePost(int32(post.Id))
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to delete post")
-		log.Printf("Unable to delete post: %s", errFeed)
+		log.Error("Unable to delete post at feed service", err.Error())
 		return
 	}
 
