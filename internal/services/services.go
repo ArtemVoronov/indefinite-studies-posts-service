@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/posts"
@@ -51,11 +52,28 @@ func createServices() *Services {
 	}
 }
 
-func (s *Services) Shutdown() {
-	s.feed.Shutdown()
-	s.auth.Shutdown()
-	s.db.Shutdown()
-	s.posts.Shutdown()
+func (s *Services) Shutdown() error {
+	result := []error{}
+	err := s.feed.Shutdown()
+	if err != nil {
+		result = append(result, err)
+	}
+	err = s.auth.Shutdown()
+	if err != nil {
+		result = append(result, err)
+	}
+	err = s.db.Shutdown()
+	if err != nil {
+		result = append(result, err)
+	}
+	err = s.posts.Shutdown()
+	if err != nil {
+		result = append(result, err)
+	}
+	if len(result) > 0 {
+		return fmt.Errorf("errors during shutdown: %v", result)
+	}
+	return nil
 }
 
 func (s *Services) DB() *db.PostgreSQLService {
