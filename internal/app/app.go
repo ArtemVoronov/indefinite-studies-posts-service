@@ -66,6 +66,9 @@ func createRestApi(logger *logrus.Logger) *gin.Engine {
 		authorized.GET("/posts/debug/vars", app.RequiredOwnerRole(), expvar.Handler())
 		authorized.GET("/posts/safe-ping", app.RequiredOwnerRole(), ping.SafePing)
 
+		// TODO: after allowing to create posts for others need to add rule: ONLY OWNER and MODERATOR could change states from ON_MODERATION -> PUBLISHED
+		// TODO: after allowing to create posts for others need to add rule: ONLY OWNER and MODERATOR or author of post could update it
+		// TODO: after allowing to create posts for others need to add rule: ONLY OWNER and MODERATOR or author of post could delete it
 		authorized.POST("/posts/", app.RequiredOwnerRole(), postsRestApi.CreatePost)
 		authorized.PUT("/posts/", app.RequiredOwnerRole(), postsRestApi.UpdatePost)
 		authorized.DELETE("/posts/", app.RequiredOwnerRole(), postsRestApi.DeletePost)
