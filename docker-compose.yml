@@ -1,27 +1,23 @@
 version: "3.9"
 services:
   #TODO: add pgbouncer or pgcat and several instances of postgres
-  postgres:
+  postgres_shard_1:
       image: postgres
       environment:
-        POSTGRES_USER: "${DATABASE_USER}"
-        POSTGRES_PASSWORD: "${DATABASE_PASSWORD}"
-        POSTGRES_DB: "${DATABASE_NAME}"
+        POSTGRES_USER: "${DATABASE_USER_SHARD_1}"
+        POSTGRES_PASSWORD: "${DATABASE_PASSWORD_SHARD_1}"
+        POSTGRES_DB: "${DATABASE_NAME_SHARD_1}"
       volumes:
-        - database-volume:/var/lib/postgresql/data
-  
-  pgbouncer:
-    image: edoburu/pgbouncer
-    environment:
-       - DB_USER="${DATABASE_USER}"
-       - DB_PASSWORD="${DATABASE_PASSWORD}"
-       - DB_HOST=postgres
-       - DB_NAME="${DATABASE_NAME}" 
-       - POOL_MODE=transaction
-    ports:
-      - "5432:5432"
-    depends_on:
-      - postgres
+        - database-volume:/var/lib/postgresql/data_shard_1
+
+  postgres_shard_2:
+      image: postgres
+      environment:
+        POSTGRES_USER: "${DATABASE_USER_SHARD_2}"
+        POSTGRES_PASSWORD: "${DATABASE_PASSWORD_SHARD_2}"
+        POSTGRES_DB: "${DATABASE_NAME_SHARD_2}"
+      volumes:
+        - database-volume:/var/lib/postgresql/data_shard_2
     
   api:
     build: .
@@ -32,22 +28,38 @@ services:
       - "3009-3010:3005"
       - "50055-50056:50051"
     depends_on:
-      - liquibase
+      - liquibase_shard_1
+      - liquibase_shard_2
   
-  liquibase:
+  liquibase_shard_1:
     image: liquibase/liquibase
     volumes:
       - ./docker/liquibase/migrations:/liquibase/changelog
     command: [
         "liquibase",
-        "--username=${DATABASE_USER}",
-        "--password=${DATABASE_PASSWORD}",
+        "--username=${DATABASE_USER_SHARD_1}",
+        "--password=${DATABASE_PASSWORD_SHARD_1}",
         "--changeLogFile=changelog/db.changelog-root.xml",
-        "--url=${DATABASE_URL}",
+        "--url=${DATABASE_URL_SHARD_1}",
         "update"
     ]
     depends_on:
-      - pgbouncer
+      - postgres_shard_1
+  
+  liquibase_shard_2:
+    image: liquibase/liquibase
+    volumes:
+      - ./docker/liquibase/migrations:/liquibase/changelog
+    command: [
+        "liquibase",
+        "--username=${DATABASE_USER_SHARD_2}",
+        "--password=${DATABASE_PASSWORD_SHARD_2}",
+        "--changeLogFile=changelog/db.changelog-root.xml",
+        "--url=${DATABASE_URL_SHARD_2}",
+        "update"
+    ]
+    depends_on:
+      - postgres_shard_2
   
   nginx:
     image: nginx

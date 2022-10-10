@@ -42,13 +42,31 @@ func createServices() *Services {
 		log.Fatalf("unable to load TLS credentials: %s", err)
 	}
 
-	db := db.CreatePostgreSQLService()
+	dbParamsShard1 := &db.DBParams{
+		Host:         utils.EnvVar("DATABASE_HOST_SHARD_1"),
+		Port:         utils.EnvVar("DATABASE_PORT_SHARD_1"),
+		Username:     utils.EnvVar("DATABASE_USER_SHARD_1"),
+		Password:     utils.EnvVar("DATABASE_PASSWORD_SHARD_1"),
+		DatabaseName: utils.EnvVar("DATABASE_NAME_SHARD_1"),
+		SslMode:      utils.EnvVar("DATABASE_SSL_MODE_SHARD_1"),
+	}
+
+	dbParamsShard2 := &db.DBParams{
+		Host:         utils.EnvVar("DATABASE_HOST_SHARD_2"),
+		Port:         utils.EnvVar("DATABASE_PORT_SHARD_2"),
+		Username:     utils.EnvVar("DATABASE_USER_SHARD_2"),
+		Password:     utils.EnvVar("DATABASE_PASSWORD_SHARD_2"),
+		DatabaseName: utils.EnvVar("DATABASE_NAME_SHARD_2"),
+		SslMode:      utils.EnvVar("DATABASE_SSL_MODE_SHARD_2"),
+	}
+
+	dbShard1 := db.CreatePostgreSQLService(dbParamsShard1)
+	dbShard2 := db.CreatePostgreSQLService(dbParamsShard2)
 
 	return &Services{
 		auth:  auth.CreateAuthGRPCService(utils.EnvVar("AUTH_SERVICE_GRPC_HOST")+":"+utils.EnvVar("AUTH_SERVICE_GRPC_PORT"), &authcreds),
 		feed:  feed.CreateFeedBuilderGRPCService(utils.EnvVar("FEED_SERVICE_GRPC_HOST")+":"+utils.EnvVar("FEED_SERVICE_GRPC_PORT"), &feedcreds),
-		db:    db,
-		posts: posts.CreatePostsService(db),
+		posts: posts.CreatePostsService(dbShard1, dbShard2),
 	}
 }
 
@@ -74,10 +92,6 @@ func (s *Services) Shutdown() error {
 		return fmt.Errorf("errors during shutdown: %v", result)
 	}
 	return nil
-}
-
-func (s *Services) DB() *db.PostgreSQLService {
-	return s.db
 }
 
 func (s *Services) Auth() *auth.AuthGRPCService {

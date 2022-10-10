@@ -3,12 +3,13 @@ module github.com/ArtemVoronov/indefinite-studies-posts-service
 go 1.18
 
 require (
-	github.com/ArtemVoronov/indefinite-studies-utils v0.0.0-20221010084255-cfc0616068c5
+	github.com/ArtemVoronov/indefinite-studies-utils v0.0.0-20221010132846-d6ed8f9d45c7
 	github.com/gin-contrib/expvar v0.0.1
 	github.com/gin-gonic/gin v1.8.1
 	github.com/google/uuid v1.3.0
 	github.com/lib/pq v1.10.6
 	github.com/sirupsen/logrus v1.9.0
+	github.com/spaolacci/murmur3 v1.1.0
 	google.golang.org/grpc v1.49.0
 	google.golang.org/protobuf v1.28.0
 )

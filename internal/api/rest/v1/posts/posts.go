@@ -9,7 +9,6 @@ import (
 
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services"
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/entities"
-	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/queries"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api/validation"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/log"
@@ -22,7 +21,7 @@ import (
 func GetPosts(c *gin.Context) {
 	limitStr := c.DefaultQuery("limit", "50")
 	offsetStr := c.DefaultQuery("offset", "0")
-	idsStr := c.DefaultQuery("ids", "")
+	// idsStr := c.DefaultQuery("ids", "")
 
 	limit, err := strconv.Atoi(limitStr)
 	if err != nil {
@@ -35,17 +34,18 @@ func GetPosts(c *gin.Context) {
 	}
 
 	var postsList []entities.Post
-	if idsStr != "" {
-		ids, castErr := convertIdsQueryParam(idsStr)
-		if castErr != nil {
-			c.JSON(http.StatusInternalServerError, "Unable to get posts by ids")
-			log.Error("Error during casting 'ids' query param", castErr.Error())
-			return
-		}
-		postsList, err = services.Instance().Posts().GetPostsByIds(ids, offset, limit)
-	} else {
-		postsList, err = services.Instance().Posts().GetPosts(offset, limit)
-	}
+	// TODO: implement for shards
+	// if idsStr != "" {
+	// 	ids, castErr := convertIdsQueryParam(idsStr)
+	// 	if castErr != nil {
+	// 		c.JSON(http.StatusInternalServerError, "Unable to get posts by ids")
+	// 		log.Error("Error during casting 'ids' query param", castErr.Error())
+	// 		return
+	// 	}
+	// 	postsList, err = services.Instance().Posts().GetPostsByIds(ids, offset, limit)
+	// } else {
+	postsList, err = services.Instance().Posts().GetPosts(offset, limit)
+	// }
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to get posts")
 		log.Error("Unable to get posts", err.Error())
@@ -85,9 +85,9 @@ func GetPost(c *gin.Context) {
 }
 
 func CreatePost(c *gin.Context) {
-	var postDTO PostCreateDTO
+	var dto PostCreateDTO
 
-	if err := c.ShouldBindJSON(&postDTO); err != nil {
+	if err := c.ShouldBindJSON(&dto); err != nil {
 		validation.SendError(c, err)
 		return
 	}
@@ -98,19 +98,19 @@ func CreatePost(c *gin.Context) {
 		log.Error("unable to create uuid for post", err.Error())
 		return
 	}
-	params := toCreatePostParams(&postDTO)
-	params.Uuid = uuid.String()
 
-	postId, err := services.Instance().Posts().CreatePost(params)
+	postUuid := uuid.String()
+
+	postId, err := services.Instance().Posts().CreatePost(postUuid, dto.AuthorId, dto.Text, dto.PreviewText, dto.Topic)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create post")
 		log.Error("Unable to create post", err.Error())
 		return
 	}
 
-	log.Info(fmt.Sprintf("Created post. Id: %v. Uuid: %v", postId, uuid.String()))
+	log.Info(fmt.Sprintf("Created post. Id: %v. Uuid: %v", postId, postUuid))
 
-	post, err := services.Instance().Posts().GetPost(uuid.String())
+	post, err := services.Instance().Posts().GetPost(postUuid)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create post")
 		log.Error("Unable to get post after creation", err.Error())
@@ -124,30 +124,30 @@ func CreatePost(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, uuid.String())
+	c.JSON(http.StatusCreated, postUuid)
 }
 
 func UpdatePost(c *gin.Context) {
-	var postDTO PostEditDTO
-	if err := c.ShouldBindJSON(&postDTO); err != nil {
+	var dto PostEditDTO
+	if err := c.ShouldBindJSON(&dto); err != nil {
 		validation.SendError(c, err)
 		return
 	}
 
-	if postDTO.State != nil {
-		if *postDTO.State == entities.POST_STATE_DELETED {
+	if dto.State != nil {
+		if *dto.State == entities.POST_STATE_DELETED {
 			c.JSON(http.StatusBadRequest, api.DELETE_VIA_PUT_REQUEST_IS_FODBIDDEN)
 			return
 		}
 
 		possibleStates := entities.GetPossiblePostStates()
-		if !utils.Contains(possibleStates, *postDTO.State) {
+		if !utils.Contains(possibleStates, *dto.State) {
 			c.JSON(http.StatusBadRequest, fmt.Sprintf("Unable to update post. Wrong 'State' value. Possible values: %v", possibleStates))
 			return
 		}
 	}
 
-	err := services.Instance().Posts().UpdatePost(toUpdatePostParams(&postDTO))
+	err := services.Instance().Posts().UpdatePost(dto.Uuid, dto.AuthorId, dto.Text, dto.PreviewText, dto.Topic, nil)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
@@ -158,7 +158,7 @@ func UpdatePost(c *gin.Context) {
 		return
 	}
 
-	post, err := services.Instance().Posts().GetPost(postDTO.Uuid)
+	post, err := services.Instance().Posts().GetPost(dto.Uuid)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to update post")
 		log.Error("Unable to get post after updating", err.Error())
@@ -235,26 +235,6 @@ func toFeedPostDTO(post *entities.Post) *feed.FeedPostDTO {
 		State:          post.State,
 		CreateDate:     post.CreateDate,
 		LastUpdateDate: post.LastUpdateDate,
-	}
-}
-
-func toUpdatePostParams(post *PostEditDTO) *queries.UpdatePostParams {
-	return &queries.UpdatePostParams{
-		Uuid:        post.Uuid,
-		AuthorId:    post.AuthorId,
-		Text:        post.Text,
-		PreviewText: post.PreviewText,
-		Topic:       post.Topic,
-		State:       post.State,
-	}
-}
-
-func toCreatePostParams(post *PostCreateDTO) *queries.CreatePostParams {
-	return &queries.CreatePostParams{
-		AuthorId:    post.AuthorId,
-		Text:        post.Text,
-		PreviewText: post.PreviewText,
-		Topic:       post.Topic,
 	}
 }
 

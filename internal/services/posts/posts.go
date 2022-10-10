@@ -7,27 +7,68 @@ import (
 
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/entities"
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/queries"
+	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/log"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/db"
+	"github.com/spaolacci/murmur3"
 )
 
+const BUCKET_NUMBER = 16
+
 type PostsService struct {
-	client *db.PostgreSQLService
+	clientShard1 *db.PostgreSQLService
+	clientShard2 *db.PostgreSQLService
+	bucketBorder uint64
 }
 
-func CreatePostsService(client *db.PostgreSQLService) *PostsService {
+func CreatePostsService(clientShard1 *db.PostgreSQLService, clientShard2 *db.PostgreSQLService) *PostsService {
 	return &PostsService{
-		client: client,
+		clientShard1: clientShard1,
+		clientShard2: clientShard2,
+		bucketBorder: uint64(BUCKET_NUMBER / 2),
 	}
 }
 
 func (s *PostsService) Shutdown() error {
-	return s.client.Shutdown()
+	result := []error{}
+	err := s.clientShard1.Shutdown()
+	if err != nil {
+		result = append(result, err)
+	}
+	err = s.clientShard2.Shutdown()
+	if err != nil {
+		result = append(result, err)
+	}
+	if len(result) > 0 {
+		return fmt.Errorf("errors during shutdown: %v", result)
+	}
+	return nil
 }
 
-func (s *PostsService) CreatePost(post *queries.CreatePostParams) (int, error) {
+func (s *PostsService) client(postUuid string) *db.PostgreSQLService {
+	// TODO: clean logging
+	// TODO: add mapping with variables count of shards (finish consistent hashing)
+	hash := murmur3.Sum64([]byte(postUuid))
+	bucket := hash % BUCKET_NUMBER
+	if bucket < s.bucketBorder {
+		log.Info("=============================SHARD ONE=============================")
+		return s.clientShard1
+	} else {
+		log.Info("=============================SHARD TWO=============================")
+		return s.clientShard2
+	}
+}
+
+func (s *PostsService) CreatePost(postUuid string, authorId int, text string, previewText string, topic string) (int, error) {
 	var postId int = -1
-	data, err := s.client.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
-		result, err := queries.CreatePost(tx, ctx, post)
+	data, err := s.client(postUuid).Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+		params := &queries.CreatePostParams{
+			Uuid:        postUuid,
+			AuthorId:    authorId,
+			Text:        text,
+			PreviewText: previewText,
+			Topic:       topic,
+		}
+		result, err := queries.CreatePost(tx, ctx, params)
 		return result, err
 	})()
 
@@ -42,15 +83,23 @@ func (s *PostsService) CreatePost(post *queries.CreatePostParams) (int, error) {
 	return postId, nil
 }
 
-func (s *PostsService) UpdatePost(post *queries.UpdatePostParams) error {
-	return s.client.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
-		err := queries.UpdatePost(tx, ctx, post)
+func (s *PostsService) UpdatePost(postUuid string, authorId *int, text *string, previewText *string, topic *string, state *string) error {
+	return s.client(postUuid).TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+		params := &queries.UpdatePostParams{
+			Uuid:        postUuid,
+			AuthorId:    authorId,
+			Text:        text,
+			PreviewText: previewText,
+			Topic:       topic,
+			State:       state,
+		}
+		err := queries.UpdatePost(tx, ctx, params)
 		return err
 	})()
 }
 
 func (s *PostsService) DeletePost(postUuid string) error {
-	return s.client.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+	return s.client(postUuid).TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 		err := queries.DeletePost(tx, ctx, postUuid)
 		return err
 	})()
@@ -59,7 +108,7 @@ func (s *PostsService) DeletePost(postUuid string) error {
 func (s *PostsService) GetPost(postUuid string) (entities.Post, error) {
 	var result entities.Post
 
-	data, err := s.client.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+	data, err := s.client(postUuid).Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
 		post, err := queries.GetPost(tx, ctx, postUuid)
 		return post, err
 	})()
@@ -77,7 +126,7 @@ func (s *PostsService) GetPost(postUuid string) (entities.Post, error) {
 
 func (s *PostsService) GetPosts(offset int, limit int) ([]entities.Post, error) {
 	// TODO: iterate through all shards
-	data, err := s.client.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+	data, err := s.clientShard1.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
 		posts, err := queries.GetPosts(tx, ctx, limit, offset)
 		return posts, err
 	})()
@@ -92,26 +141,27 @@ func (s *PostsService) GetPosts(offset int, limit int) ([]entities.Post, error) 
 	return posts, nil
 }
 
-func (s *PostsService) GetPostsByIds(ids []int, offset int, limit int) ([]entities.Post, error) {
-	data, err := s.client.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
-		posts, err := queries.GetPostsByIds(tx, ctx, ids, limit, offset)
-		return posts, err
-	})()
-	if err != nil {
-		return nil, err
-	}
+// TODO implement for shards
+// func (s *PostsService) GetPostsByIds(ids []int, offset int, limit int) ([]entities.Post, error) {
+// 	// TODO: get shard by post uuid
+// 	data, err := s.client.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+// 		posts, err := queries.GetPostsByIds(tx, ctx, ids, limit, offset)
+// 		return posts, err
+// 	})()
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	posts, ok := data.([]entities.Post)
-	if !ok {
-		return nil, fmt.Errorf("unable to convert result into []entities.Post")
-	}
-	return posts, nil
-}
+// 	posts, ok := data.([]entities.Post)
+// 	if !ok {
+// 		return nil, fmt.Errorf("unable to convert result into []entities.Post")
+// 	}
+// 	return posts, nil
+// }
+
 func (s *PostsService) CreateComment(postUuid string, commentUuid string, AuthorId int, Text string, LinkedCommentId *int) (int, error) {
-	// TODO: get shard by post uuid, get post id, convert to params using post id
-
 	var commentId int = -1
-	data, err := s.client.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+	data, err := s.client(postUuid).Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
 		post, err := queries.GetPost(tx, ctx, postUuid)
 		if err != nil {
 			return nil, err
@@ -140,8 +190,7 @@ func (s *PostsService) CreateComment(postUuid string, commentUuid string, Author
 }
 
 func (s *PostsService) UpdateComment(postUuid string, commentId int, text *string, state *string) error {
-	// TODO: get shard by post uuid
-	return s.client.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+	return s.client(postUuid).TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 		params := &queries.UpdateCommentParams{
 			Id:    commentId,
 			Text:  text,
@@ -153,18 +202,16 @@ func (s *PostsService) UpdateComment(postUuid string, commentId int, text *strin
 }
 
 func (s *PostsService) DeleteComment(postUuid string, commentId int) error {
-	// TODO: get shard by post uuid, delete comment by id (not uuid)
-	return s.client.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+	return s.client(postUuid).TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 		err := queries.DeleteComment(tx, ctx, commentId)
 		return err
 	})()
 }
 
 func (s *PostsService) GetComment(postUuid string, commentId int) (entities.Comment, error) {
-	// TODO: get shard by post uuid, get comment by id (not uuid)
 	var result entities.Comment
 
-	data, err := s.client.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+	data, err := s.client(postUuid).Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
 		comment, err := queries.GetComment(tx, ctx, commentId)
 		return comment, err
 	})()
@@ -181,8 +228,7 @@ func (s *PostsService) GetComment(postUuid string, commentId int) (entities.Comm
 }
 
 func (s *PostsService) GetComments(postUuid string, offset int, limit int) ([]entities.Comment, error) {
-	// TODO: get shard by post uuid, fund post id, find comments by post id
-	data, err := s.client.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+	data, err := s.client(postUuid).Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
 		post, err := queries.GetPost(tx, ctx, postUuid)
 		if err != nil {
 			return nil, err
