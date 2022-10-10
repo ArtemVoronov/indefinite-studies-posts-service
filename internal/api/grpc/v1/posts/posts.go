@@ -23,7 +23,7 @@ func RegisterServiceServer(s *grpc.Server) {
 }
 
 func (s *PostsServiceServer) GetPost(ctx context.Context, in *posts.GetPostRequest) (*posts.GetPostReply, error) {
-	post, err := services.Instance().Posts().GetPost(int(in.GetId()))
+	post, err := services.Instance().Posts().GetPost(in.GetUuid())
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf(api.PAGE_NOT_FOUND)
@@ -38,11 +38,11 @@ func (s *PostsServiceServer) GetPosts(ctx context.Context, in *posts.GetPostsReq
 	var postsList []entities.Post
 	var err error
 
-	if len(in.GetIds()) > 0 {
-		postsList, err = services.Instance().Posts().GetPostsByIds(utils.Int32SliceToIntSlice(in.GetIds()), int(in.Offset), int(in.Limit))
-	} else {
-		postsList, err = services.Instance().Posts().GetPosts(int(in.Offset), int(in.Limit))
-	}
+	// if len(in.GetIds()) > 0 {
+	// 	postsList, err = services.Instance().Posts().GetPostsByIds(utils.Int32SliceToIntSlice(in.GetIds()), int(in.Offset), int(in.Limit))
+	// } else {
+	postsList, err = services.Instance().Posts().GetPosts(int(in.Offset), int(in.Limit))
+	// }
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -67,7 +67,7 @@ func (s *PostsServiceServer) GetPostsStream(stream posts.PostsService_GetPostsSt
 }
 
 func (s *PostsServiceServer) GetComment(ctx context.Context, in *posts.GetCommentRequest) (*posts.GetCommentReply, error) {
-	comment, err := services.Instance().Posts().GetComment(int(in.GetId()))
+	comment, err := services.Instance().Posts().GetComment(in.GetPostUuid(), int(in.GetId()))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf(api.PAGE_NOT_FOUND)
@@ -75,14 +75,14 @@ func (s *PostsServiceServer) GetComment(ctx context.Context, in *posts.GetCommen
 			return nil, err
 		}
 	}
-	return toGetCommentReply(comment), nil
+	return toGetCommentReply(comment, in.GetPostUuid()), nil
 }
 
 func (s *PostsServiceServer) GetComments(ctx context.Context, in *posts.GetCommentsRequest) (*posts.GetCommentsReply, error) {
 	var commentsList []entities.Comment
 	var err error
 
-	commentsList, err = services.Instance().Posts().GetComments(int(in.GetPostId()), int(in.Offset), int(in.Limit))
+	commentsList, err = services.Instance().Posts().GetComments(in.GetPostUuid(), int(in.Offset), int(in.Limit))
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -96,7 +96,7 @@ func (s *PostsServiceServer) GetComments(ctx context.Context, in *posts.GetComme
 		Offset:   in.Offset,
 		Limit:    in.Limit,
 		Count:    int32(len(commentsList)),
-		Comments: toGetCommentReplies(commentsList),
+		Comments: toGetCommentReplies(commentsList, in.GetPostUuid()),
 	}
 
 	return result, nil
@@ -108,7 +108,7 @@ func (s *PostsServiceServer) GetCommentsStream(stream posts.PostsService_GetComm
 
 func toGetPostReply(post entities.Post) *posts.GetPostReply {
 	return &posts.GetPostReply{
-		Id:             int32(post.Id),
+		Uuid:           post.Uuid,
 		AuthorId:       int32(post.AuthorId),
 		Text:           post.Text,
 		PreviewText:    post.PreviewText,
@@ -128,11 +128,11 @@ func toGetPostReplies(input []entities.Post) []*posts.GetPostReply {
 	return replies
 }
 
-func toGetCommentReply(comment entities.Comment) *posts.GetCommentReply {
+func toGetCommentReply(comment entities.Comment, postUuid string) *posts.GetCommentReply {
 	return &posts.GetCommentReply{
 		Id:              int32(comment.Id),
 		AuthorId:        int32(comment.AuthorId),
-		PostId:          int32(comment.PostId),
+		PostUuid:        postUuid,
 		LinkedCommentId: utils.IntPtrToInt32(comment.LinkedCommentId),
 		Text:            comment.Text,
 		State:           comment.State,
@@ -141,10 +141,10 @@ func toGetCommentReply(comment entities.Comment) *posts.GetCommentReply {
 	}
 }
 
-func toGetCommentReplies(input []entities.Comment) []*posts.GetCommentReply {
+func toGetCommentReplies(input []entities.Comment, postUuid string) []*posts.GetCommentReply {
 	replies := []*posts.GetCommentReply{}
 	for _, p := range input {
-		reply := toGetCommentReply(p)
+		reply := toGetCommentReply(p, postUuid)
 		replies = append(replies, reply)
 	}
 	return replies

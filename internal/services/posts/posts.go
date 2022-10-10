@@ -49,18 +49,18 @@ func (s *PostsService) UpdatePost(post *queries.UpdatePostParams) error {
 	})()
 }
 
-func (s *PostsService) DeletePost(postId int) error {
+func (s *PostsService) DeletePost(postUuid string) error {
 	return s.client.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
-		err := queries.DeletePost(tx, ctx, postId)
+		err := queries.DeletePost(tx, ctx, postUuid)
 		return err
 	})()
 }
 
-func (s *PostsService) GetPost(postId int) (entities.Post, error) {
+func (s *PostsService) GetPost(postUuid string) (entities.Post, error) {
 	var result entities.Post
 
 	data, err := s.client.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
-		post, err := queries.GetPost(tx, ctx, postId)
+		post, err := queries.GetPost(tx, ctx, postUuid)
 		return post, err
 	})()
 	if err != nil {
@@ -76,6 +76,7 @@ func (s *PostsService) GetPost(postId int) (entities.Post, error) {
 }
 
 func (s *PostsService) GetPosts(offset int, limit int) ([]entities.Post, error) {
+	// TODO: iterate through all shards
 	data, err := s.client.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
 		posts, err := queries.GetPosts(tx, ctx, limit, offset)
 		return posts, err
@@ -132,14 +133,16 @@ func (s *PostsService) UpdateComment(comment *queries.UpdateCommentParams) error
 	})()
 }
 
-func (s *PostsService) DeleteComment(commentId int) error {
+func (s *PostsService) DeleteComment(postUuid string, commentId int) error {
+	// TODO: get shard by post uuid, delete comment by id (not uuid)
 	return s.client.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 		err := queries.DeleteComment(tx, ctx, commentId)
 		return err
 	})()
 }
 
-func (s *PostsService) GetComment(commentId int) (entities.Comment, error) {
+func (s *PostsService) GetComment(postUuid string, commentId int) (entities.Comment, error) {
+	// TODO: get shard by post uuid, get comment by id (not uuid)
 	var result entities.Comment
 
 	data, err := s.client.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
@@ -158,9 +161,15 @@ func (s *PostsService) GetComment(commentId int) (entities.Comment, error) {
 	return result, nil
 }
 
-func (s *PostsService) GetComments(postId int, offset int, limit int) ([]entities.Comment, error) {
+func (s *PostsService) GetComments(postUuid string, offset int, limit int) ([]entities.Comment, error) {
+	// TODO: get shard by post uuid, fund post id, find comments by post id
 	data, err := s.client.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
-		comments, err := queries.GetComments(tx, ctx, postId, limit, offset)
+		post, err := queries.GetPost(tx, ctx, postUuid)
+		if err != nil {
+			return nil, err
+		}
+
+		comments, err := queries.GetComments(tx, ctx, post.Id, limit, offset)
 		return comments, err
 	})()
 	if err != nil {

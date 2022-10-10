@@ -4,6 +4,7 @@ import "time"
 
 type Post struct {
 	Id             int
+	Uuid           string
 	AuthorId       int
 	Text           string
 	PreviewText    string

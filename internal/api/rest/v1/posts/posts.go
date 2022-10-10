@@ -16,6 +16,7 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/feed"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/utils"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 func GetPosts(c *gin.Context) {
@@ -62,21 +63,14 @@ func GetPosts(c *gin.Context) {
 }
 
 func GetPost(c *gin.Context) {
-	postIdStr := c.Param("id")
+	postUuid := c.Param("uuid")
 
-	if postIdStr == "" {
-		c.JSON(http.StatusBadRequest, "Missed 'id' query param")
+	if postUuid == "" {
+		c.JSON(http.StatusBadRequest, "Missed 'uuid' param")
 		return
 	}
 
-	var postId int
-	var parseErr error
-	if postId, parseErr = strconv.Atoi(postIdStr); parseErr != nil {
-		c.JSON(http.StatusBadRequest, api.ERROR_ID_WRONG_FORMAT)
-		return
-	}
-
-	post, err := services.Instance().Posts().GetPost(postId)
+	post, err := services.Instance().Posts().GetPost(postUuid)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
@@ -98,14 +92,25 @@ func CreatePost(c *gin.Context) {
 		return
 	}
 
-	postId, err := services.Instance().Posts().CreatePost(toCreatePostParams(&postDTO))
+	uuid, err := uuid.NewRandom()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, "Unable to create post")
+		log.Error("unable to create uuid for post", err.Error())
+		return
+	}
+	params := toCreatePostParams(&postDTO)
+	params.Uuid = uuid.String()
+
+	postId, err := services.Instance().Posts().CreatePost(params)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create post")
 		log.Error("Unable to create post", err.Error())
 		return
 	}
 
-	post, err := services.Instance().Posts().GetPost(postId)
+	log.Info(fmt.Sprintf("Created post. Id: %v. Uuid: %v", postId, uuid.String()))
+
+	post, err := services.Instance().Posts().GetPost(uuid.String())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create post")
 		log.Error("Unable to get post after creation", err.Error())
@@ -119,7 +124,7 @@ func CreatePost(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, postId)
+	c.JSON(http.StatusCreated, uuid.String())
 }
 
 func UpdatePost(c *gin.Context) {
@@ -153,7 +158,7 @@ func UpdatePost(c *gin.Context) {
 		return
 	}
 
-	post, err := services.Instance().Posts().GetPost(postDTO.Id)
+	post, err := services.Instance().Posts().GetPost(postDTO.Uuid)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to update post")
 		log.Error("Unable to get post after updating", err.Error())
@@ -177,11 +182,11 @@ func DeletePost(c *gin.Context) {
 		return
 	}
 
-	err := services.Instance().Posts().DeletePost(post.Id)
+	err := services.Instance().Posts().DeletePost(post.Uuid)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			errFeed := services.Instance().Feed().DeletePost(int32(post.Id))
+			errFeed := services.Instance().Feed().DeletePost(post.Uuid)
 			if errFeed != nil {
 				c.JSON(http.StatusInternalServerError, "Unable to delete post")
 				log.Error("Unable to delete post at feed service", errFeed.Error())
@@ -195,7 +200,7 @@ func DeletePost(c *gin.Context) {
 		return
 	}
 
-	err = services.Instance().Feed().DeletePost(int32(post.Id))
+	err = services.Instance().Feed().DeletePost(post.Uuid)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to delete post")
 		log.Error("Unable to delete post at feed service", err.Error())
@@ -217,12 +222,12 @@ func convertPosts(input []entities.Post) []PostDTO {
 }
 
 func convertPost(input entities.Post) PostDTO {
-	return PostDTO{Id: input.Id, Text: input.Text, PreviewText: input.PreviewText, Topic: input.Topic, AuthorId: input.AuthorId, State: input.State}
+	return PostDTO{Uuid: input.Uuid, Text: input.Text, PreviewText: input.PreviewText, Topic: input.Topic, AuthorId: input.AuthorId, State: input.State}
 }
 
 func toFeedPostDTO(post *entities.Post) *feed.FeedPostDTO {
 	return &feed.FeedPostDTO{
-		Id:             int32(post.Id),
+		Uuid:           post.Uuid,
 		AuthorId:       int32(post.AuthorId),
 		Text:           post.Text,
 		PreviewText:    post.PreviewText,
@@ -235,7 +240,7 @@ func toFeedPostDTO(post *entities.Post) *feed.FeedPostDTO {
 
 func toUpdatePostParams(post *PostEditDTO) *queries.UpdatePostParams {
 	return &queries.UpdatePostParams{
-		Id:          post.Id,
+		Uuid:        post.Uuid,
 		AuthorId:    post.AuthorId,
 		Text:        post.Text,
 		PreviewText: post.PreviewText,

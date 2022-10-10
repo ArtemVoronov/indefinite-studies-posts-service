@@ -13,6 +13,9 @@
             <column name="id" type="int" autoIncrement="true">
                 <constraints primaryKey="true" nullable="false"/>
             </column>
+            <column name="uuid" type="varchar(36)">
+                <constraints nullable="false"/>
+            </column>
             <column name="author_id" type="int">
                 <constraints nullable="false"/>
             </column>
@@ -58,6 +61,9 @@
             <column name="id" type="int" autoIncrement="true">
                 <constraints primaryKey="true" nullable="false"/>
             </column>
+            <column name="uuid" type="varchar(36)">
+                <constraints nullable="false"/>
+            </column>
             <column name="author_id" type="int">
                 <constraints nullable="false"/>
             </column>
@@ -79,6 +85,14 @@
                 <constraints nullable="false"/>
             </column>
         </createTable>
+        <addUniqueConstraint tableName="posts" columnNames="uuid" constraintName="posts_uuid_unique" />
+        <sql dbms="postgresql">
+            CREATE INDEX posts_uuid_hash_index ON posts USING HASH (uuid);
+        </sql>
+        <addUniqueConstraint tableName="comments" columnNames="uuid" constraintName="comments_uuid_unique" />
+        <sql dbms="postgresql">
+            CREATE INDEX comments_uuid_hash_index ON comments USING HASH (uuid);
+        </sql>
         <addUniqueConstraint tableName="tags" columnNames="name, state" constraintName="tags_name_state_unique" />
         <addPrimaryKey tableName="posts_and_tags" columnNames="post_id,tag_id" constraintName="PK_posts_and_tags" />
         <rollback>         

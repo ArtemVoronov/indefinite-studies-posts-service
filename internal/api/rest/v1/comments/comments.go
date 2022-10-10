@@ -16,20 +16,14 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/feed"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/utils"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 func GetComments(c *gin.Context) {
-	postIdStr := c.Param("id")
+	postUuid := c.Param("uuid")
 
-	if postIdStr == "" {
-		c.JSON(http.StatusBadRequest, "Missed ID")
-		return
-	}
-
-	var postId int
-	var parseErr error
-	if postId, parseErr = strconv.Atoi(postIdStr); parseErr != nil {
-		c.JSON(http.StatusBadRequest, api.ERROR_ID_WRONG_FORMAT)
+	if postUuid == "" {
+		c.JSON(http.StatusBadRequest, "Missed 'uuid' parameter")
 		return
 	}
 
@@ -46,7 +40,7 @@ func GetComments(c *gin.Context) {
 		offset = 0
 	}
 
-	comments, err := services.Instance().Posts().GetComments(postId, offset, limit)
+	comments, err := services.Instance().Posts().GetComments(postUuid, offset, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to get comments")
 		log.Error("Unable to get comments", err.Error())
@@ -54,7 +48,7 @@ func GetComments(c *gin.Context) {
 	}
 
 	result := &CommentListDTO{
-		Data:   convertComments(comments),
+		Data:   convertComments(comments, postUuid),
 		Count:  len(comments),
 		Offset: offset,
 		Limit:  limit,
@@ -71,28 +65,40 @@ func CreateComment(c *gin.Context) {
 		return
 	}
 
-	commentId, err := services.Instance().Posts().CreateComment(toCreateCommentParams(&commentDTO))
+	uuid, err := uuid.NewRandom()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, "Unable to create comment")
+		log.Error("unable to create uuid for comment", err.Error())
+		return
+	}
+
+	params := toCreateCommentParams(&commentDTO)
+	params.Uuid = uuid.String()
+
+	commentId, err := services.Instance().Posts().CreateComment(params)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create comment")
 		log.Error("Unable to create comment", err.Error())
 		return
 	}
 
-	comment, err := services.Instance().Posts().GetComment(commentId)
+	log.Info(fmt.Sprintf("Created comment. Id: %v. Uuid: %v", commentId, uuid.String()))
+
+	comment, err := services.Instance().Posts().GetComment(uuid.String(), commentId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create comment")
 		log.Error("Unable to get comment after creation", err.Error())
 		return
 	}
 
-	err = services.Instance().Feed().CreateComment(toFeedCommentDTO(&comment))
+	err = services.Instance().Feed().CreateComment(toFeedCommentDTO(&comment, uuid.String()))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create comment")
 		log.Error("Unable to create comment at feed servuce", err.Error())
 		return
 	}
 
-	c.JSON(http.StatusCreated, commentId)
+	c.JSON(http.StatusCreated, params.Uuid)
 }
 
 func UpdateComment(c *gin.Context) {
@@ -137,14 +143,14 @@ func UpdateComment(c *gin.Context) {
 		return
 	}
 
-	comment, err := services.Instance().Posts().GetComment(commentDTO.Id)
+	comment, err := services.Instance().Posts().GetComment(commentDTO.PostUuid, commentDTO.CommentId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to update comment")
 		log.Error("Unable to get comment after updating", err.Error())
 		return
 	}
 
-	err = services.Instance().Feed().UpdateComment(toFeedCommentDTO(&comment))
+	err = services.Instance().Feed().UpdateComment(toFeedCommentDTO(&comment, commentDTO.PostUuid))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to update comment")
 		log.Error("Unable to update comment in feed service", err.Error())
@@ -161,11 +167,11 @@ func DeleteComment(c *gin.Context) {
 		return
 	}
 
-	err := services.Instance().Posts().DeleteComment(commentDTO.CommentId)
+	err := services.Instance().Posts().DeleteComment(commentDTO.PostUuid, commentDTO.CommentId)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			errFeed := services.Instance().Feed().DeleteComment(int32(commentDTO.PostId), int32(commentDTO.CommentId))
+			errFeed := services.Instance().Feed().DeleteComment(commentDTO.PostUuid, commentDTO.CommentUuid)
 			if errFeed != nil {
 				c.JSON(http.StatusInternalServerError, "Unable to delete comment")
 				log.Error("Unable to delete comment from feed service", errFeed.Error())
@@ -179,34 +185,34 @@ func DeleteComment(c *gin.Context) {
 		return
 	}
 
-	errFeed := services.Instance().Feed().DeleteComment(int32(commentDTO.PostId), int32(commentDTO.CommentId))
-	if errFeed != nil {
+	err = services.Instance().Feed().DeleteComment(commentDTO.PostUuid, commentDTO.CommentUuid)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to delete comment")
-		log.Error("Unable to delete comment from feed service", errFeed.Error())
+		log.Error("Unable to delete comment from feed service", err.Error())
 		return
 	}
 
 	c.JSON(http.StatusOK, api.DONE)
 }
 
-func convertComments(comments []entities.Comment) []CommentDTO {
+func convertComments(comments []entities.Comment, postUuid string) []CommentDTO {
 	if comments == nil {
 		return make([]CommentDTO, 0)
 	}
 	var result []CommentDTO
 	for _, comment := range comments {
-		result = append(result, convertComment(comment))
+		result = append(result, convertComment(comment, postUuid))
 	}
 	return result
 }
 
-func convertComment(comment entities.Comment) CommentDTO {
-	return CommentDTO{Id: comment.Id, AuthorId: comment.AuthorId, PostId: comment.PostId, LinkedCommentId: comment.LinkedCommentId, Text: comment.Text, State: comment.State}
+func convertComment(comment entities.Comment, postUuid string) CommentDTO {
+	return CommentDTO{Id: comment.Id, AuthorId: comment.AuthorId, PostUuid: postUuid, LinkedCommentId: comment.LinkedCommentId, Text: comment.Text, State: comment.State}
 }
 
 func toUpdateCommentParams(comment *CommentEditDTO) *queries.UpdateCommentParams {
 	return &queries.UpdateCommentParams{
-		Id:    comment.Id,
+		Id:    comment.CommentId,
 		Text:  comment.Text,
 		State: comment.State,
 	}
@@ -215,17 +221,17 @@ func toUpdateCommentParams(comment *CommentEditDTO) *queries.UpdateCommentParams
 func toCreateCommentParams(comment *CommentCreateDTO) *queries.CreateCommentParams {
 	return &queries.CreateCommentParams{
 		AuthorId:        comment.AuthorId,
-		PostId:          comment.PostId,
+		PostId:          comment.PostUuid,
 		LinkedCommentId: comment.LinkedCommentId,
 		Text:            comment.Text,
 	}
 }
 
-func toFeedCommentDTO(comment *entities.Comment) *feed.FeedCommentDTO {
+func toFeedCommentDTO(comment *entities.Comment, postUuid string) *feed.FeedCommentDTO {
 	result := &feed.FeedCommentDTO{
-		Id:             int32(comment.Id),
+		Uuid:           comment.Uuid,
 		AuthorId:       int32(comment.AuthorId),
-		PostId:         int32(comment.PostId),
+		PostUuid:       postUuid,
 		Text:           comment.Text,
 		State:          comment.State,
 		CreateDate:     comment.CreateDate,
