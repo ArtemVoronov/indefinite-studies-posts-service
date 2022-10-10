@@ -131,6 +131,7 @@ func toGetPostReplies(input []entities.Post) []*posts.GetPostReply {
 func toGetCommentReply(comment entities.Comment, postUuid string) *posts.GetCommentReply {
 	return &posts.GetCommentReply{
 		Id:              int32(comment.Id),
+		Uuid:            comment.Uuid,
 		AuthorId:        int32(comment.AuthorId),
 		PostUuid:        postUuid,
 		LinkedCommentId: utils.IntPtrToInt32(comment.LinkedCommentId),

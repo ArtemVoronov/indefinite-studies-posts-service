@@ -107,11 +107,24 @@ func (s *PostsService) GetPostsByIds(ids []int, offset int, limit int) ([]entiti
 	}
 	return posts, nil
 }
+func (s *PostsService) CreateComment(postUuid string, commentUuid string, AuthorId int, Text string, LinkedCommentId *int) (int, error) {
+	// TODO: get shard by post uuid, get post id, convert to params using post id
 
-func (s *PostsService) CreateComment(comment *queries.CreateCommentParams) (int, error) {
 	var commentId int = -1
 	data, err := s.client.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
-		result, err := queries.CreateComment(tx, ctx, comment)
+		post, err := queries.GetPost(tx, ctx, postUuid)
+		if err != nil {
+			return nil, err
+		}
+		params := &queries.CreateCommentParams{
+			Uuid:            commentUuid,
+			AuthorId:        AuthorId,
+			PostId:          post.Id,
+			LinkedCommentId: LinkedCommentId,
+			Text:            Text,
+		}
+
+		result, err := queries.CreateComment(tx, ctx, params)
 		return result, err
 	})()
 
@@ -126,9 +139,15 @@ func (s *PostsService) CreateComment(comment *queries.CreateCommentParams) (int,
 	return commentId, nil
 }
 
-func (s *PostsService) UpdateComment(comment *queries.UpdateCommentParams) error {
+func (s *PostsService) UpdateComment(postUuid string, commentId int, text *string, state *string) error {
+	// TODO: get shard by post uuid
 	return s.client.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
-		err := queries.UpdateComment(tx, ctx, comment)
+		params := &queries.UpdateCommentParams{
+			Id:    commentId,
+			Text:  text,
+			State: state,
+		}
+		err := queries.UpdateComment(tx, ctx, params)
 		return err
 	})()
 }

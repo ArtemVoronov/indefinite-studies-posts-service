@@ -8,7 +8,6 @@ import (
 
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services"
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/entities"
-	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/queries"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api/validation"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/app"
@@ -58,9 +57,9 @@ func GetComments(c *gin.Context) {
 }
 
 func CreateComment(c *gin.Context) {
-	var commentDTO CommentCreateDTO
+	var dto CommentCreateDTO
 
-	if err := c.ShouldBindJSON(&commentDTO); err != nil {
+	if err := c.ShouldBindJSON(&dto); err != nil {
 		validation.SendError(c, err)
 		return
 	}
@@ -71,68 +70,66 @@ func CreateComment(c *gin.Context) {
 		log.Error("unable to create uuid for comment", err.Error())
 		return
 	}
+	commentUuid := uuid.String()
 
-	params := toCreateCommentParams(&commentDTO)
-	params.Uuid = uuid.String()
-
-	commentId, err := services.Instance().Posts().CreateComment(params)
+	commentId, err := services.Instance().Posts().CreateComment(dto.PostUuid, commentUuid, dto.AuthorId, dto.Text, dto.LinkedCommentId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create comment")
 		log.Error("Unable to create comment", err.Error())
 		return
 	}
 
-	log.Info(fmt.Sprintf("Created comment. Id: %v. Uuid: %v", commentId, uuid.String()))
+	log.Info(fmt.Sprintf("Created comment. Id: %v. Uuid: %v", commentId, commentUuid))
 
-	comment, err := services.Instance().Posts().GetComment(uuid.String(), commentId)
+	comment, err := services.Instance().Posts().GetComment(dto.PostUuid, commentId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create comment")
 		log.Error("Unable to get comment after creation", err.Error())
 		return
 	}
 
-	err = services.Instance().Feed().CreateComment(toFeedCommentDTO(&comment, uuid.String()))
+	err = services.Instance().Feed().CreateComment(toFeedCommentDTO(&comment, dto.PostUuid))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create comment")
 		log.Error("Unable to create comment at feed servuce", err.Error())
 		return
 	}
 
-	c.JSON(http.StatusCreated, params.Uuid)
+	c.JSON(http.StatusCreated, commentUuid)
 }
 
 func UpdateComment(c *gin.Context) {
-	var commentDTO CommentEditDTO
-	if err := c.ShouldBindJSON(&commentDTO); err != nil {
+	var dto CommentEditDTO
+	if err := c.ShouldBindJSON(&dto); err != nil {
 		validation.SendError(c, err)
 		return
 	}
 
-	if !app.IsSameUser(c, commentDTO.AuthorId) && !app.HasOwnerRole(c) {
+	if !app.IsSameUser(c, dto.AuthorId) && !app.HasOwnerRole(c) {
 		c.JSON(http.StatusForbidden, "Forbidden")
-		log.Info(fmt.Sprintf("Forbidden to update comment. Author ID: %v", commentDTO.AuthorId))
+		log.Info(fmt.Sprintf("Forbidden to update comment. Author ID: %v", dto.AuthorId))
 		return
 	}
 
-	if commentDTO.State != nil {
+	if dto.State != nil {
 		if !app.HasOwnerRole(c) {
 			c.JSON(http.StatusForbidden, "Forbidden")
-			log.Info(fmt.Sprintf("Forbidden to update comment state. Author ID: %v", commentDTO.AuthorId))
+			log.Info(fmt.Sprintf("Forbidden to update comment state. Author ID: %v", dto.AuthorId))
 			return
 		}
-		if *commentDTO.State == entities.COMMENT_STATE_DELETED {
+		if *dto.State == entities.COMMENT_STATE_DELETED {
 			c.JSON(http.StatusBadRequest, api.DELETE_VIA_PUT_REQUEST_IS_FODBIDDEN)
 			return
 		}
 
 		possibleStates := entities.GetPossibleCommentStates()
-		if !utils.Contains(possibleStates, *commentDTO.State) {
+		if !utils.Contains(possibleStates, *dto.State) {
 			c.JSON(http.StatusBadRequest, fmt.Sprintf("Unable to update comment. Wrong 'State' value. Possible values: %v", possibleStates))
 			return
 		}
 	}
 
-	err := services.Instance().Posts().UpdateComment(toUpdateCommentParams(&commentDTO))
+	err := services.Instance().Posts().UpdateComment(dto.PostUuid, dto.CommentId, dto.Text, dto.State)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
@@ -143,14 +140,14 @@ func UpdateComment(c *gin.Context) {
 		return
 	}
 
-	comment, err := services.Instance().Posts().GetComment(commentDTO.PostUuid, commentDTO.CommentId)
+	comment, err := services.Instance().Posts().GetComment(dto.PostUuid, dto.CommentId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to update comment")
 		log.Error("Unable to get comment after updating", err.Error())
 		return
 	}
 
-	err = services.Instance().Feed().UpdateComment(toFeedCommentDTO(&comment, commentDTO.PostUuid))
+	err = services.Instance().Feed().UpdateComment(toFeedCommentDTO(&comment, dto.PostUuid))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to update comment")
 		log.Error("Unable to update comment in feed service", err.Error())
@@ -208,23 +205,6 @@ func convertComments(comments []entities.Comment, postUuid string) []CommentDTO 
 
 func convertComment(comment entities.Comment, postUuid string) CommentDTO {
 	return CommentDTO{Id: comment.Id, AuthorId: comment.AuthorId, PostUuid: postUuid, LinkedCommentId: comment.LinkedCommentId, Text: comment.Text, State: comment.State}
-}
-
-func toUpdateCommentParams(comment *CommentEditDTO) *queries.UpdateCommentParams {
-	return &queries.UpdateCommentParams{
-		Id:    comment.CommentId,
-		Text:  comment.Text,
-		State: comment.State,
-	}
-}
-
-func toCreateCommentParams(comment *CommentCreateDTO) *queries.CreateCommentParams {
-	return &queries.CreateCommentParams{
-		AuthorId:        comment.AuthorId,
-		PostId:          comment.PostUuid,
-		LinkedCommentId: comment.LinkedCommentId,
-		Text:            comment.Text,
-	}
 }
 
 func toFeedCommentDTO(comment *entities.Comment, postUuid string) *feed.FeedCommentDTO {
