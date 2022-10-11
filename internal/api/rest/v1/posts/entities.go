@@ -10,10 +10,11 @@ type PostDTO struct {
 }
 
 type PostListDTO struct {
-	Count  int
-	Offset int
-	Limit  int
-	Data   []PostDTO
+	Count       int
+	Offset      int
+	Limit       int
+	ShardsCount int
+	Data        []PostDTO
 }
 
 type PostEditDTO struct {

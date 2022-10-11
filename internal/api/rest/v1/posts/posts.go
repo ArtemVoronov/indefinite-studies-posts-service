@@ -21,6 +21,7 @@ import (
 func GetPosts(c *gin.Context) {
 	limitStr := c.DefaultQuery("limit", "50")
 	offsetStr := c.DefaultQuery("offset", "0")
+	shardStr := c.Query("shard")
 	// idsStr := c.DefaultQuery("ids", "")
 
 	limit, err := strconv.Atoi(limitStr)
@@ -31,6 +32,13 @@ func GetPosts(c *gin.Context) {
 	offset, err := strconv.Atoi(offsetStr)
 	if err != nil {
 		offset = 0
+	}
+
+	shard, err := strconv.Atoi(shardStr)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, "Missed 'shard' parameter or wrong value")
+		log.Error(fmt.Sprintf("Missed 'shard' parameter or wrong value: %v", shardStr), err.Error())
+		return
 	}
 
 	var postsList []entities.Post
@@ -44,7 +52,7 @@ func GetPosts(c *gin.Context) {
 	// 	}
 	// 	postsList, err = services.Instance().Posts().GetPostsByIds(ids, offset, limit)
 	// } else {
-	postsList, err = services.Instance().Posts().GetPosts(offset, limit)
+	postsList, err = services.Instance().Posts().GetPosts(offset, limit, shard)
 	// }
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to get posts")
@@ -53,10 +61,11 @@ func GetPosts(c *gin.Context) {
 	}
 
 	result := &PostListDTO{
-		Data:   convertPosts(postsList),
-		Count:  len(postsList),
-		Offset: offset,
-		Limit:  limit,
+		Data:        convertPosts(postsList),
+		Count:       len(postsList),
+		Offset:      offset,
+		Limit:       limit,
+		ShardsCount: services.Instance().Posts().ShardsNum,
 	}
 
 	c.JSON(http.StatusOK, result)

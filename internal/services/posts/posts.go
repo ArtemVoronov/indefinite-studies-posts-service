@@ -9,34 +9,31 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/queries"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/log"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/db"
-	"github.com/spaolacci/murmur3"
+	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/shard"
 )
 
-const BUCKET_NUMBER = 16
-
 type PostsService struct {
-	clientShard1 *db.PostgreSQLService
-	clientShard2 *db.PostgreSQLService
-	bucketBorder uint64
+	clientShards []*db.PostgreSQLService
+	ShardsNum    int
+	shardService *shard.ShardService
 }
 
-func CreatePostsService(clientShard1 *db.PostgreSQLService, clientShard2 *db.PostgreSQLService) *PostsService {
+func CreatePostsService(clients []*db.PostgreSQLService) *PostsService {
 	return &PostsService{
-		clientShard1: clientShard1,
-		clientShard2: clientShard2,
-		bucketBorder: uint64(BUCKET_NUMBER / 2),
+		clientShards: clients,
+		ShardsNum:    len(clients),
+		shardService: shard.CreateShardService(len(clients)),
 	}
 }
 
 func (s *PostsService) Shutdown() error {
 	result := []error{}
-	err := s.clientShard1.Shutdown()
-	if err != nil {
-		result = append(result, err)
-	}
-	err = s.clientShard2.Shutdown()
-	if err != nil {
-		result = append(result, err)
+	l := len(s.clientShards)
+	for i := 0; i < l; i++ {
+		err := s.clientShards[i].Shutdown()
+		if err != nil {
+			result = append(result, err)
+		}
 	}
 	if len(result) > 0 {
 		return fmt.Errorf("errors during shutdown: %v", result)
@@ -45,17 +42,10 @@ func (s *PostsService) Shutdown() error {
 }
 
 func (s *PostsService) client(postUuid string) *db.PostgreSQLService {
-	// TODO: clean logging
-	// TODO: add mapping with variables count of shards (finish consistent hashing)
-	hash := murmur3.Sum64([]byte(postUuid))
-	bucket := hash % BUCKET_NUMBER
-	if bucket < s.bucketBorder {
-		log.Info("=============================SHARD ONE=============================")
-		return s.clientShard1
-	} else {
-		log.Info("=============================SHARD TWO=============================")
-		return s.clientShard2
-	}
+	bucketIndex := s.shardService.GetBucketIndex(postUuid)
+	bucket := s.shardService.GetBucket(bucketIndex)
+	log.Info(fmt.Sprintf("bucket: %v\tbucketIndex: %v", bucket, bucketIndex))
+	return s.clientShards[bucket]
 }
 
 func (s *PostsService) CreatePost(postUuid string, authorId int, text string, previewText string, topic string) (int, error) {
@@ -124,9 +114,11 @@ func (s *PostsService) GetPost(postUuid string) (entities.Post, error) {
 	return result, nil
 }
 
-func (s *PostsService) GetPosts(offset int, limit int) ([]entities.Post, error) {
-	// TODO: iterate through all shards
-	data, err := s.clientShard1.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+func (s *PostsService) GetPosts(offset int, limit int, shard int) ([]entities.Post, error) {
+	if shard > s.ShardsNum || shard < 0 {
+		return nil, fmt.Errorf("unexpected shard number: %v", shard)
+	}
+	data, err := s.clientShards[shard].Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
 		posts, err := queries.GetPosts(tx, ctx, limit, offset)
 		return posts, err
 	})()

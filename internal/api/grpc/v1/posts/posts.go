@@ -41,7 +41,7 @@ func (s *PostsServiceServer) GetPosts(ctx context.Context, in *posts.GetPostsReq
 	// if len(in.GetIds()) > 0 {
 	// 	postsList, err = services.Instance().Posts().GetPostsByIds(utils.Int32SliceToIntSlice(in.GetIds()), int(in.Offset), int(in.Limit))
 	// } else {
-	postsList, err = services.Instance().Posts().GetPosts(int(in.Offset), int(in.Limit))
+	postsList, err = services.Instance().Posts().GetPosts(int(in.Offset), int(in.Limit), int(in.Shard))
 	// }
 
 	if err != nil {
@@ -53,10 +53,11 @@ func (s *PostsServiceServer) GetPosts(ctx context.Context, in *posts.GetPostsReq
 	}
 
 	result := &posts.GetPostsReply{
-		Offset: in.Offset,
-		Limit:  in.Limit,
-		Count:  int32(len(postsList)),
-		Posts:  toGetPostReplies(postsList),
+		Offset:      in.Offset,
+		Limit:       in.Limit,
+		Count:       int32(len(postsList)),
+		Posts:       toGetPostReplies(postsList),
+		ShardsCount: int32(services.Instance().Posts().ShardsNum),
 	}
 
 	return result, nil

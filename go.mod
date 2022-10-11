@@ -3,13 +3,12 @@ module github.com/ArtemVoronov/indefinite-studies-posts-service
 go 1.18
 
 require (
-	github.com/ArtemVoronov/indefinite-studies-utils v0.0.0-20221010132846-d6ed8f9d45c7
+	github.com/ArtemVoronov/indefinite-studies-utils v0.0.0-20221011121041-e7c135a414e4
 	github.com/gin-contrib/expvar v0.0.1
 	github.com/gin-gonic/gin v1.8.1
 	github.com/google/uuid v1.3.0
 	github.com/lib/pq v1.10.6
 	github.com/sirupsen/logrus v1.9.0
-	github.com/spaolacci/murmur3 v1.1.0
 	google.golang.org/grpc v1.49.0
 	google.golang.org/protobuf v1.28.0
 )
@@ -29,6 +28,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.1 // indirect
+	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/ugorji/go/codec v1.2.7 // indirect
 	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97 // indirect
 	golang.org/x/net v0.0.0-20210428140749-89ef3d95e781 // indirect

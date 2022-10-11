@@ -1,23 +1,14 @@
 version: "3.9"
 services:
-  #TODO: add pgbouncer or pgcat and several instances of postgres
-  postgres_shard_1:
+  postgres:
       image: postgres
       environment:
-        POSTGRES_USER: "${DATABASE_USER_SHARD_1}"
-        POSTGRES_PASSWORD: "${DATABASE_PASSWORD_SHARD_1}"
-        POSTGRES_DB: "${DATABASE_NAME_SHARD_1}"
+        POSTGRES_USER: "${DATABASE_USER}"
+        POSTGRES_PASSWORD: "${DATABASE_PASSWORD}"
+        POSTGRES_MULTIPLE_DATABASES: "${DATABASE_NAME_PREFIX}_1,${DATABASE_NAME_PREFIX}_2,${DATABASE_NAME_PREFIX}_3,${DATABASE_NAME_PREFIX}_4"
       volumes:
-        - database-volume:/var/lib/postgresql/data_shard_1
-
-  postgres_shard_2:
-      image: postgres
-      environment:
-        POSTGRES_USER: "${DATABASE_USER_SHARD_2}"
-        POSTGRES_PASSWORD: "${DATABASE_PASSWORD_SHARD_2}"
-        POSTGRES_DB: "${DATABASE_NAME_SHARD_2}"
-      volumes:
-        - database-volume:/var/lib/postgresql/data_shard_2
+        - ./scripts/docker-postgresql-multiple-databases:/docker-entrypoint-initdb.d
+        - database-volume:/var/lib/postgresql/data
     
   api:
     build: .
@@ -30,6 +21,9 @@ services:
     depends_on:
       - liquibase_shard_1
       - liquibase_shard_2
+      - liquibase_shard_3
+      - liquibase_shard_4
+      - postgres
   
   liquibase_shard_1:
     image: liquibase/liquibase
@@ -37,14 +31,14 @@ services:
       - ./docker/liquibase/migrations:/liquibase/changelog
     command: [
         "liquibase",
-        "--username=${DATABASE_USER_SHARD_1}",
-        "--password=${DATABASE_PASSWORD_SHARD_1}",
+        "--username=${DATABASE_USER}",
+        "--password=${DATABASE_PASSWORD}",
         "--changeLogFile=changelog/db.changelog-root.xml",
-        "--url=${DATABASE_URL_SHARD_1}",
+        "--url=${DATABASE_URL}_1",
         "update"
     ]
     depends_on:
-      - postgres_shard_1
+      - postgres
   
   liquibase_shard_2:
     image: liquibase/liquibase
@@ -52,14 +46,44 @@ services:
       - ./docker/liquibase/migrations:/liquibase/changelog
     command: [
         "liquibase",
-        "--username=${DATABASE_USER_SHARD_2}",
-        "--password=${DATABASE_PASSWORD_SHARD_2}",
+        "--username=${DATABASE_USER}",
+        "--password=${DATABASE_PASSWORD}",
         "--changeLogFile=changelog/db.changelog-root.xml",
-        "--url=${DATABASE_URL_SHARD_2}",
+        "--url=${DATABASE_URL}_2",
         "update"
     ]
     depends_on:
-      - postgres_shard_2
+      - postgres
+  
+  liquibase_shard_3:
+    image: liquibase/liquibase
+    volumes:
+      - ./docker/liquibase/migrations:/liquibase/changelog
+    command: [
+        "liquibase",
+        "--username=${DATABASE_USER}",
+        "--password=${DATABASE_PASSWORD}",
+        "--changeLogFile=changelog/db.changelog-root.xml",
+        "--url=${DATABASE_URL}_3",
+        "update"
+    ]
+    depends_on:
+      - postgres
+  
+  liquibase_shard_4:
+    image: liquibase/liquibase
+    volumes:
+      - ./docker/liquibase/migrations:/liquibase/changelog
+    command: [
+        "liquibase",
+        "--username=${DATABASE_USER}",
+        "--password=${DATABASE_PASSWORD}",
+        "--changeLogFile=changelog/db.changelog-root.xml",
+        "--url=${DATABASE_URL}_4",
+        "update"
+    ]
+    depends_on:
+      - postgres
   
   nginx:
     image: nginx
