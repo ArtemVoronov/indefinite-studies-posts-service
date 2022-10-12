@@ -32,6 +32,7 @@ type PostCreateDTO struct {
 	Text        string `json:"text" binding:"required"`
 	PreviewText string `json:"previewText" binding:"required"`
 	Topic       string `json:"topic" binding:"required"`
+	TagId       int    `json:"tagId" binding:"required"`
 }
 
 type PostDeleteDTO struct {

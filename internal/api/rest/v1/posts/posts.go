@@ -119,6 +119,15 @@ func CreatePost(c *gin.Context) {
 
 	log.Info(fmt.Sprintf("Created post. Id: %v. Uuid: %v", postId, postUuid))
 
+	err = services.Instance().Posts().AssignTagToPost(postUuid, dto.TagId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, "Unable to create post")
+		log.Error("Unable to assign tag to post", err.Error())
+		return
+	}
+
+	log.Info(fmt.Sprintf("Assigned tag to post. TagId: %v. Post UUID: %v", dto.TagId, postUuid))
+
 	post, err := services.Instance().Posts().GetPostWithTags(postUuid)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create post")
