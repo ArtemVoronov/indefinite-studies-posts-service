@@ -8,6 +8,7 @@ import (
 	commentsRestApi "github.com/ArtemVoronov/indefinite-studies-posts-service/internal/api/rest/v1/comments"
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/api/rest/v1/ping"
 	postsRestApi "github.com/ArtemVoronov/indefinite-studies-posts-service/internal/api/rest/v1/posts"
+	tagsRestApi "github.com/ArtemVoronov/indefinite-studies-posts-service/internal/api/rest/v1/tags"
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/app"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/log"
@@ -59,6 +60,8 @@ func createRestApi(logger *logrus.Logger) *gin.Engine {
 	v1.GET("/posts", postsRestApi.GetPosts)
 	v1.GET("/posts/:uuid", postsRestApi.GetPost)
 	v1.GET("/posts/:uuid/comments", commentsRestApi.GetComments)
+	v1.GET("/posts/tags", tagsRestApi.GetTags)
+	v1.GET("/posts/tags/:id", tagsRestApi.GetTag)
 
 	authorized := router.Group("/api/v1")
 	authorized.Use(app.AuthReqired(authenicate))
@@ -76,6 +79,10 @@ func createRestApi(logger *logrus.Logger) *gin.Engine {
 		authorized.POST("/posts/comments", commentsRestApi.CreateComment)
 		authorized.PUT("/posts/comments", commentsRestApi.UpdateComment)
 		authorized.DELETE("/posts/comments", app.RequiredOwnerRole(), commentsRestApi.DeleteComment)
+
+		authorized.POST("/posts/tags/", app.RequiredOwnerRole(), tagsRestApi.CreateTag)
+		authorized.PUT("/posts/tags/", app.RequiredOwnerRole(), tagsRestApi.UpdateTag)
+		authorized.PUT("/posts/tags/assing", app.RequiredOwnerRole(), tagsRestApi.UpdateAssignTag)
 	}
 
 	return router

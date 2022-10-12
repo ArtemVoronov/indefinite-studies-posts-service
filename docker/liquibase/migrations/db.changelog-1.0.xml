@@ -45,9 +45,6 @@
             <column name="name" type="varchar(256)">
                 <constraints nullable="false"/>
             </column>
-            <column name="state" type="varchar(256)">
-                <constraints nullable="false"/>
-            </column>
         </createTable>
         <createTable tableName="posts_and_tags">
             <column name="post_id" type="int" autoIncrement="true">
@@ -93,7 +90,7 @@
         <sql dbms="postgresql">
             CREATE INDEX comments_uuid_hash_index ON comments USING HASH (uuid);
         </sql>
-        <addUniqueConstraint tableName="tags" columnNames="name, state" constraintName="tags_name_state_unique" />
+        <addUniqueConstraint tableName="tags" columnNames="name" constraintName="tags_name_unique" />
         <addPrimaryKey tableName="posts_and_tags" columnNames="post_id,tag_id" constraintName="PK_posts_and_tags" />
         <rollback>         
             <dropTable tableName="comments"/>

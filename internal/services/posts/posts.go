@@ -239,3 +239,112 @@ func (s *PostsService) GetComments(postUuid string, offset int, limit int) ([]en
 	}
 	return comments, nil
 }
+
+func (s *PostsService) GetTags(offset int, limit int) ([]entities.Tag, error) {
+	data, err := s.clientShards[0].Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+		comments, err := queries.GetTags(tx, ctx, limit, offset)
+		return comments, err
+	})()
+	if err != nil {
+		return nil, err
+	}
+
+	comments, ok := data.([]entities.Tag)
+	if !ok {
+		return nil, fmt.Errorf("unable to convert result into []entities.Tag")
+	}
+	return comments, nil
+}
+
+func (s *PostsService) GetTag(id int) (entities.Tag, error) {
+	var result entities.Tag
+
+	data, err := s.clientShards[0].Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+		comment, err := queries.GetTag(tx, ctx, id)
+		return comment, err
+	})()
+	if err != nil {
+		return result, err
+	}
+
+	result, ok := data.(entities.Tag)
+	if !ok {
+		return result, fmt.Errorf("unable to convert result into entities.Tag")
+	}
+
+	return result, nil
+}
+
+func (s *PostsService) CreateTag(name string) (int, error) {
+	idsMap := make(map[int]int)
+	for shard := range s.clientShards {
+		id, err := s.createTag(name, shard)
+		if err != nil {
+			if err.Error() != queries.ErrorTagDuplicateKey.Error() {
+				return -1, err
+			} else {
+				log.Info(fmt.Sprintf("Duplicate tag name during create. Shard ID: %v. Name: %v", shard, name))
+			}
+		}
+		idsMap[id] += 1
+	}
+
+	if len(idsMap) != 1 {
+		return -1, fmt.Errorf("tag was created with different id in some shard")
+	}
+
+	for k := range idsMap {
+		return k, nil
+	}
+
+	return -1, fmt.Errorf("unable to create tags in all shards")
+}
+
+func (s *PostsService) createTag(name string, shard int) (int, error) {
+	var result int = -1
+	data, err := s.clientShards[shard].Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+		result, err := queries.CreateTag(tx, ctx, name)
+		return result, err
+	})()
+
+	if err != nil || data == -1 {
+		return result, err
+	}
+
+	result, ok := data.(int)
+	if !ok {
+		return result, fmt.Errorf("unable to convert result into int")
+	}
+	return result, nil
+}
+
+func (s *PostsService) UpdateTag(id int, name string) error {
+	result := []error{}
+	for shard := range s.clientShards {
+		err := s.updateTag(id, name, shard)
+		if err != nil {
+			if err.Error() != queries.ErrorTagDuplicateKey.Error() {
+				result = append(result, err)
+			} else {
+				log.Info(fmt.Sprintf("Duplicate tag name during update. Shard ID: %v. Name: %v. ID: %v", shard, name, id))
+			}
+		}
+	}
+
+	if len(result) != 0 {
+		return fmt.Errorf("unable to update tags in all shards")
+	}
+
+	return nil
+}
+
+func (s *PostsService) updateTag(id int, name string, shard int) error {
+	return s.clientShards[shard].TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+		err := queries.UpdateTag(tx, ctx, id, name)
+		return err
+	})()
+}
+
+func (s *PostsService) DeleteTag(id int) error {
+	return fmt.Errorf("not implemented")
+}
