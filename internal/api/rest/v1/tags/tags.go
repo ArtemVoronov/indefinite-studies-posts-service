@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/api/rest/v1/posts"
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services"
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/entities"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api"
@@ -92,8 +93,6 @@ func CreateTag(c *gin.Context) {
 
 	log.Info(fmt.Sprintf("Created tag. Id: %v", tagId))
 
-	// TODO: send tag to feed builder
-
 	c.JSON(http.StatusCreated, tagId)
 }
 
@@ -117,23 +116,81 @@ func UpdateTag(c *gin.Context) {
 
 	log.Info(fmt.Sprintf("Updated tag. Id: %v. New name: %v", dto.Id, dto.Name))
 
-	// TODO: send tag to feed builder
-
 	c.JSON(http.StatusOK, api.DONE)
 }
 
 func AssignTag(c *gin.Context) {
-	// TODO: store link in appropriate shard: post id <-> tag id
-	// TODO: log info
-	// TODO: send tag to feed builder
-	c.JSON(http.StatusNotImplemented, "NOT IMPLEMENTED")
+	var dto PostTagConnectionDTO
+	if err := c.ShouldBindJSON(&dto); err != nil {
+		validation.SendError(c, err)
+		return
+	}
+
+	err := services.Instance().Posts().AssignTagToPost(dto.PostUuid, dto.TagId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
+		} else {
+			c.JSON(http.StatusInternalServerError, "Unable to assign tag to post")
+			log.Error("Unable to assign tag to post", err.Error())
+		}
+		return
+	}
+
+	log.Info(fmt.Sprintf("Assigned tag to post. TagId: %v. Post UUID: %v", dto.TagId, dto.PostUuid))
+
+	post, err := services.Instance().Posts().GetPostWithTags(dto.PostUuid)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, "Unable to create post")
+		log.Error("Unable to get post after creation", err.Error())
+		return
+	}
+
+	err = services.Instance().Feed().UpdatePost(posts.ToFeedPostDTO(&post))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, "Unable to create post")
+		log.Error("Unable to create post at feed service", err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, api.DONE)
 }
 
 func RemoveTag(c *gin.Context) {
-	// TODO: store link in appropriate shard: post id <-> tag id
-	// TODO: log info
-	// TODO: send tag to feed builder
-	c.JSON(http.StatusNotImplemented, "NOT IMPLEMENTED")
+	var dto PostTagConnectionDTO
+	if err := c.ShouldBindJSON(&dto); err != nil {
+		validation.SendError(c, err)
+		return
+	}
+
+	err := services.Instance().Posts().RemoveTagToPost(dto.PostUuid, dto.TagId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
+		} else {
+			c.JSON(http.StatusInternalServerError, "Unable to remove tag from post")
+			log.Error("Unable to remove tag from post", err.Error())
+		}
+		return
+	}
+
+	log.Info(fmt.Sprintf("Removed tag from post. TagId: %v. Post UUID: %v", dto.TagId, dto.PostUuid))
+
+	post, err := services.Instance().Posts().GetPostWithTags(dto.PostUuid)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, "Unable to create post")
+		log.Error("Unable to get post after creation", err.Error())
+		return
+	}
+
+	err = services.Instance().Feed().UpdatePost(posts.ToFeedPostDTO(&post))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, "Unable to create post")
+		log.Error("Unable to create post at feed service", err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, api.DONE)
 }
 
 func convertTags(input []entities.Tag) []TagDTO {

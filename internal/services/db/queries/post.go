@@ -4,11 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/entities"
 	"github.com/lib/pq"
 )
+
+var tagsRegexp = regexp.MustCompile(",")
 
 type CreatePostParams struct {
 	Uuid        interface{}
@@ -34,6 +37,18 @@ const (
 	WHERE state != $3 
 	LIMIT $1 OFFSET $2`
 
+	GET_POSTS_WITH_TAGS_QUERY = `SELECT 
+		posts.id, posts.uuid, posts.author_id, posts.text, posts.preview_text, posts.topic, posts.state, posts.create_date, posts.last_update_date, COALESCE(string_agg(tags.name, ','), '') as tags
+	FROM posts 
+	LEFT OUTER JOIN posts_and_tags ON posts.id = posts_and_tags.post_id
+	LEFT OUTER JOIN tags ON posts_and_tags.tag_id = tags.id
+	WHERE state != $3 
+	GROUP BY posts.id, posts.uuid, posts.author_id, posts.text, posts.preview_text, posts.topic, posts.state, posts.create_date, posts.last_update_date
+	ORDER BY posts.id ASC
+	LIMIT $1
+	OFFSET $2
+	`
+
 	GET_POSTS_BY_IDS_QUERY = `SELECT 
 		id, uuid, author_id, text, preview_text, topic, state, create_date, last_update_date 
 	FROM posts 
@@ -55,6 +70,14 @@ const (
 		id, uuid, author_id, text, preview_text, topic, state, create_date, last_update_date 
 	FROM posts 
 	WHERE uuid = $1 and state != $2`
+
+	GET_POST_WITH_TAGS_BY_UUID_QUERY = `SELECT 
+		posts.id, posts.uuid, posts.author_id, posts.text, posts.preview_text, posts.topic, posts.state, posts.create_date, posts.last_update_date, COALESCE(string_agg(tags.name, ','), '') as tags 
+	FROM posts 
+	LEFT OUTER JOIN posts_and_tags ON posts.id = posts_and_tags.post_id
+	LEFT OUTER JOIN tags ON posts_and_tags.tag_id = tags.id
+	WHERE uuid = $1 and state != $2
+	GROUP BY posts.id, posts.uuid, posts.author_id, posts.text, posts.preview_text, posts.topic, posts.state, posts.create_date, posts.last_update_date`
 
 	CREATE_POST_QUERY = `INSERT INTO posts
 		(uuid, author_id, text, preview_text, topic, state, create_date, last_update_date) 
@@ -123,6 +146,55 @@ func GetPosts(tx *sql.Tx, ctx context.Context, limit int, offset int) ([]entitie
 	return posts, nil
 }
 
+func GetPostsWithTags(tx *sql.Tx, ctx context.Context, limit int, offset int) ([]entities.PostWithTags, error) {
+	var posts []entities.PostWithTags
+	var (
+		id             int
+		uuid           string
+		authorId       int
+		text           string
+		previewText    string
+		topic          string
+		state          string
+		createDate     time.Time
+		lastUpdateDate time.Time
+		tags           string
+	)
+
+	rows, err := tx.QueryContext(ctx, GET_POSTS_WITH_TAGS_QUERY, limit, offset, entities.POST_STATE_DELETED)
+	if err != nil {
+		return posts, fmt.Errorf("error at loading posts, case after Query: %s", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		err := rows.Scan(&id, &uuid, &authorId, &text, &previewText, &topic, &state, &createDate, &lastUpdateDate, &tags)
+		if err != nil {
+			return posts, fmt.Errorf("error at loading posts, case iterating and using rows.Scan: %s", err)
+		}
+		posts = append(posts, entities.PostWithTags{
+			Post: entities.Post{
+				Id:             id,
+				AuthorId:       authorId,
+				Uuid:           uuid,
+				Text:           text,
+				PreviewText:    previewText,
+				Topic:          topic,
+				State:          state,
+				CreateDate:     createDate,
+				LastUpdateDate: lastUpdateDate,
+			},
+			Tags: convertTags(tags),
+		})
+	}
+	err = rows.Err()
+	if err != nil {
+		return posts, fmt.Errorf("error at loading posts, case after iterating: %s", err)
+	}
+
+	return posts, nil
+}
+
 func GetPostsByIds(tx *sql.Tx, ctx context.Context, ids []int, limit int, offset int) ([]entities.Post, error) {
 	var posts []entities.Post
 	var (
@@ -169,6 +241,25 @@ func GetPost(tx *sql.Tx, ctx context.Context, uuid string) (entities.Post, error
 			return post, fmt.Errorf("error at loading post by uuid '%v' from db, case after QueryRow.Scan: %s", uuid, err)
 		}
 	}
+
+	return post, nil
+}
+
+func GetPostWithTags(tx *sql.Tx, ctx context.Context, uuid string) (entities.PostWithTags, error) {
+	var post entities.PostWithTags
+	var tags string
+
+	err := tx.QueryRowContext(ctx, GET_POST_WITH_TAGS_BY_UUID_QUERY, uuid, entities.POST_STATE_DELETED).
+		Scan(&post.Id, &post.Uuid, &post.AuthorId, &post.Text, &post.PreviewText, &post.Topic, &post.State, &post.CreateDate, &post.LastUpdateDate, &tags)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return post, err
+		} else {
+			return post, fmt.Errorf("error at loading post by uuid '%v' from db, case after QueryRow.Scan: %s", uuid, err)
+		}
+	}
+
+	post.Tags = convertTags(tags)
 
 	return post, nil
 }
@@ -229,4 +320,12 @@ func DeletePost(tx *sql.Tx, ctx context.Context, uuid string) error {
 		return sql.ErrNoRows
 	}
 	return nil
+}
+
+func convertTags(input string) []string {
+	if input == "" {
+		return []string{}
+	}
+
+	return tagsRegexp.Split(input, -1)
 }

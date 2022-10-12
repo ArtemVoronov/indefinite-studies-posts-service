@@ -24,3 +24,8 @@ type TagCreateDTO struct {
 type TagDeleteDTO struct {
 	Id int `json:"Id" binding:"required"`
 }
+
+type PostTagConnectionDTO struct {
+	PostUuid string `json:"PostUuid" binding:"required"`
+	TagId    int    `json:"TagId" binding:"required"`
+}

@@ -114,6 +114,25 @@ func (s *PostsService) GetPost(postUuid string) (entities.Post, error) {
 	return result, nil
 }
 
+func (s *PostsService) GetPostWithTags(postUuid string) (entities.PostWithTags, error) {
+	var result entities.PostWithTags
+
+	data, err := s.client(postUuid).Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+		post, err := queries.GetPostWithTags(tx, ctx, postUuid)
+		return post, err
+	})()
+	if err != nil {
+		return result, err
+	}
+
+	result, ok := data.(entities.PostWithTags)
+	if !ok {
+		return result, fmt.Errorf("unable to convert result into entities.PostWithTags")
+	}
+
+	return result, nil
+}
+
 func (s *PostsService) GetPosts(offset int, limit int, shard int) ([]entities.Post, error) {
 	if shard > s.ShardsNum || shard < 0 {
 		return nil, fmt.Errorf("unexpected shard number: %v", shard)
@@ -129,6 +148,25 @@ func (s *PostsService) GetPosts(offset int, limit int, shard int) ([]entities.Po
 	posts, ok := data.([]entities.Post)
 	if !ok {
 		return nil, fmt.Errorf("unable to convert result into []entities.Post")
+	}
+	return posts, nil
+}
+
+func (s *PostsService) GetPostsWithTags(offset int, limit int, shard int) ([]entities.PostWithTags, error) {
+	if shard > s.ShardsNum || shard < 0 {
+		return nil, fmt.Errorf("unexpected shard number: %v", shard)
+	}
+	data, err := s.clientShards[shard].Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+		posts, err := queries.GetPostsWithTags(tx, ctx, limit, offset)
+		return posts, err
+	})()
+	if err != nil {
+		return nil, err
+	}
+
+	posts, ok := data.([]entities.PostWithTags)
+	if !ok {
+		return nil, fmt.Errorf("unable to convert result into []entities.PostWithTags")
 	}
 	return posts, nil
 }
@@ -347,4 +385,24 @@ func (s *PostsService) updateTag(id int, name string, shard int) error {
 
 func (s *PostsService) DeleteTag(id int) error {
 	return fmt.Errorf("not implemented")
+}
+
+func (s *PostsService) AssignTagToPost(postUuid string, tagId int) error {
+	return s.client(postUuid).TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+		post, err := queries.GetPost(tx, ctx, postUuid)
+		if err != nil {
+			return err
+		}
+		return queries.AssignTagToPost(tx, ctx, post.Id, tagId)
+	})()
+}
+
+func (s *PostsService) RemoveTagToPost(postUuid string, tagId int) error {
+	return s.client(postUuid).TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+		post, err := queries.GetPost(tx, ctx, postUuid)
+		if err != nil {
+			return err
+		}
+		return queries.RemoveTagFromPost(tx, ctx, post.Id, tagId)
+	})()
 }

@@ -23,7 +23,7 @@ func RegisterServiceServer(s *grpc.Server) {
 }
 
 func (s *PostsServiceServer) GetPost(ctx context.Context, in *posts.GetPostRequest) (*posts.GetPostReply, error) {
-	post, err := services.Instance().Posts().GetPost(in.GetUuid())
+	post, err := services.Instance().Posts().GetPostWithTags(in.GetUuid())
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf(api.PAGE_NOT_FOUND)
@@ -35,13 +35,13 @@ func (s *PostsServiceServer) GetPost(ctx context.Context, in *posts.GetPostReque
 }
 
 func (s *PostsServiceServer) GetPosts(ctx context.Context, in *posts.GetPostsRequest) (*posts.GetPostsReply, error) {
-	var postsList []entities.Post
+	var postsList []entities.PostWithTags
 	var err error
 
 	// if len(in.GetIds()) > 0 {
 	// 	postsList, err = services.Instance().Posts().GetPostsByIds(utils.Int32SliceToIntSlice(in.GetIds()), int(in.Offset), int(in.Limit))
 	// } else {
-	postsList, err = services.Instance().Posts().GetPosts(int(in.Offset), int(in.Limit), int(in.Shard))
+	postsList, err = services.Instance().Posts().GetPostsWithTags(int(in.Offset), int(in.Limit), int(in.Shard))
 	// }
 
 	if err != nil {
@@ -107,7 +107,7 @@ func (s *PostsServiceServer) GetCommentsStream(stream posts.PostsService_GetComm
 	return fmt.Errorf("NOT IMPLEMENTED")
 }
 
-func toGetPostReply(post entities.Post) *posts.GetPostReply {
+func toGetPostReply(post entities.PostWithTags) *posts.GetPostReply {
 	return &posts.GetPostReply{
 		Uuid:           post.Uuid,
 		AuthorId:       int32(post.AuthorId),
@@ -117,10 +117,11 @@ func toGetPostReply(post entities.Post) *posts.GetPostReply {
 		State:          post.State,
 		CreateDate:     timestamppb.New(post.CreateDate),
 		LastUpdateDate: timestamppb.New(post.LastUpdateDate),
+		Tags:           post.Tags,
 	}
 }
 
-func toGetPostReplies(input []entities.Post) []*posts.GetPostReply {
+func toGetPostReplies(input []entities.PostWithTags) []*posts.GetPostReply {
 	replies := []*posts.GetPostReply{}
 	for _, p := range input {
 		reply := toGetPostReply(p)

@@ -7,6 +7,7 @@ type PostDTO struct {
 	PreviewText string
 	Topic       string
 	State       string
+	Tags        []string
 }
 
 type PostListDTO struct {

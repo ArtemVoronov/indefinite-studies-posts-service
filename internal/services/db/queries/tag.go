@@ -10,6 +10,7 @@ import (
 )
 
 var ErrorTagDuplicateKey = errors.New("pq: duplicate key value violates unique constraint \"tags_name_unique\"")
+var ErrorPostTagDuplicateKey = errors.New("pq: duplicate key value violates unique constraint \"PK_posts_and_tags\"")
 
 const (
 	GET_TAGS_QUERY = `SELECT id, name FROM tags LIMIT $1 OFFSET $2`
@@ -20,7 +21,11 @@ const (
 
 	UPDATE_TAG_QUERY = `UPDATE tags SET name = $2 WHERE id = $1`
 
-	DELETE_TAG_QUERY = `DELETE from tags WHERE id = $1`
+	DELETE_TAG_QUERY = `DELETE FROM tags WHERE id = $1`
+
+	ASSIGN_TAG_TO_POST_QUERY = `INSERT INTO posts_and_tags (post_id, tag_id) VALUES($1, $2)`
+
+	REMOVE_TAG_FROM_POST_QUERY = `DELETE FROM posts_and_tags WHERE post_id = $1 and tag_id = $2`
 )
 
 func GetTags(tx *sql.Tx, ctx context.Context, limit int, offset int) ([]entities.Tag, error) {
@@ -117,6 +122,39 @@ func DeleteTag(tx *sql.Tx, ctx context.Context, id int) error {
 	affectedRowsCount, err := res.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("error at deleting tag by id '%v', case after counting affected rows: %v", id, err)
+	}
+	if affectedRowsCount == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func AssignTagToPost(tx *sql.Tx, ctx context.Context, postId int, tagId int) error {
+	stmt, err := tx.PrepareContext(ctx, ASSIGN_TAG_TO_POST_QUERY)
+	if err != nil {
+		return fmt.Errorf("error at inserting to posts_and_tags (PostId: '%v', TagId: '%v'), case after preparing statement: %s", postId, tagId, err)
+	}
+
+	_, err = stmt.ExecContext(ctx, postId, tagId)
+	if err != nil {
+		return fmt.Errorf("error at inserting to posts_and_tags (PostId: '%v', TagId: '%v'), case after ExecContext: %s", postId, tagId, err)
+	}
+
+	return nil
+}
+
+func RemoveTagFromPost(tx *sql.Tx, ctx context.Context, postId int, tagId int) error {
+	stmt, err := tx.PrepareContext(ctx, REMOVE_TAG_FROM_POST_QUERY)
+	if err != nil {
+		return fmt.Errorf("error at deleting from posts_and_tags (PostId: '%v', TagId: '%v'), case after preparing statement: %v", postId, tagId, err)
+	}
+	res, err := stmt.ExecContext(ctx, postId, tagId)
+	if err != nil {
+		return fmt.Errorf("error at deleting from posts_and_tags (PostId: '%v', TagId: '%v'), case after executing statement: %v", postId, tagId, err)
+	}
+	affectedRowsCount, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error at deleting from posts_and_tags (PostId: '%v', TagId: '%v'), case after counting affected rows: %v", postId, tagId, err)
 	}
 	if affectedRowsCount == 0 {
 		return sql.ErrNoRows

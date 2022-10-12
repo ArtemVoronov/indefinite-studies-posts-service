@@ -14,6 +14,11 @@ type Post struct {
 	LastUpdateDate time.Time
 }
 
+type PostWithTags struct {
+	Post
+	Tags []string
+}
+
 const (
 	POST_STATE_NEW           string = "NEW"
 	POST_STATE_ON_MODERATION string = "ON_MODERATION"
