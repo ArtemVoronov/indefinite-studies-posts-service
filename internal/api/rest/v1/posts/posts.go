@@ -176,6 +176,8 @@ func UpdatePost(c *gin.Context) {
 		return
 	}
 
+	log.Info(fmt.Sprintf("Updated post: %v", dto))
+
 	post, err := services.Instance().Posts().GetPostWithTags(dto.Uuid)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to update post")
@@ -224,6 +226,8 @@ func DeletePost(c *gin.Context) {
 		log.Error("Unable to delete post at feed service", err.Error())
 		return
 	}
+
+	log.Info(fmt.Sprintf("Deleted post. Uuid: %v", post.Uuid))
 
 	c.JSON(http.StatusOK, api.DONE)
 }

@@ -140,6 +140,8 @@ func UpdateComment(c *gin.Context) {
 		return
 	}
 
+	log.Info(fmt.Sprintf("Updated comment: %v", dto))
+
 	comment, err := services.Instance().Posts().GetComment(dto.PostUuid, dto.CommentId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to update comment")
@@ -158,17 +160,17 @@ func UpdateComment(c *gin.Context) {
 }
 
 func DeleteComment(c *gin.Context) {
-	var commentDTO CommentDeleteDTO
-	if err := c.ShouldBindJSON(&commentDTO); err != nil {
+	var dto CommentDeleteDTO
+	if err := c.ShouldBindJSON(&dto); err != nil {
 		validation.SendError(c, err)
 		return
 	}
 
-	err := services.Instance().Posts().DeleteComment(commentDTO.PostUuid, commentDTO.CommentId)
+	err := services.Instance().Posts().DeleteComment(dto.PostUuid, dto.CommentId)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			errFeed := services.Instance().Feed().DeleteComment(commentDTO.PostUuid, commentDTO.CommentUuid)
+			errFeed := services.Instance().Feed().DeleteComment(dto.PostUuid, dto.CommentUuid)
 			if errFeed != nil {
 				c.JSON(http.StatusInternalServerError, "Unable to delete comment")
 				log.Error("Unable to delete comment from feed service", errFeed.Error())
@@ -182,7 +184,9 @@ func DeleteComment(c *gin.Context) {
 		return
 	}
 
-	err = services.Instance().Feed().DeleteComment(commentDTO.PostUuid, commentDTO.CommentUuid)
+	log.Info(fmt.Sprintf("Deleted comment. Post UUID: %v. Comment ID: %v", dto.PostUuid, dto.CommentId))
+
+	err = services.Instance().Feed().DeleteComment(dto.PostUuid, dto.CommentUuid)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to delete comment")
 		log.Error("Unable to delete comment from feed service", err.Error())
