@@ -9,7 +9,6 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/entities"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/posts"
-	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -128,15 +127,15 @@ func toGetPostReplies(input []entities.PostWithTags) []*posts.GetPostReply {
 
 func toGetCommentReply(comment entities.Comment, postUuid string) *posts.GetCommentReply {
 	return &posts.GetCommentReply{
-		Id:              int32(comment.Id),
-		Uuid:            comment.Uuid,
-		AuthorUuid:      comment.AuthorUuid,
-		PostUuid:        postUuid,
-		LinkedCommentId: utils.IntPtrToInt32(comment.LinkedCommentId),
-		Text:            comment.Text,
-		State:           comment.State,
-		CreateDate:      timestamppb.New(comment.CreateDate),
-		LastUpdateDate:  timestamppb.New(comment.LastUpdateDate),
+		Id:                int32(comment.Id),
+		Uuid:              comment.Uuid,
+		AuthorUuid:        comment.AuthorUuid,
+		PostUuid:          postUuid,
+		LinkedCommentUuid: comment.LinkedCommentUuid,
+		Text:              comment.Text,
+		State:             comment.State,
+		CreateDate:        timestamppb.New(comment.CreateDate),
+		LastUpdateDate:    timestamppb.New(comment.LastUpdateDate),
 	}
 }
 

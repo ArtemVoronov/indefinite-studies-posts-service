@@ -1,13 +1,13 @@
 package comments
 
 type CommentDTO struct {
-	Id              int
-	Uuid            string
-	AuthorUuid      string
-	PostUuid        string
-	LinkedCommentId *int
-	Text            string
-	State           string
+	Id                int
+	Uuid              string
+	AuthorUuid        string
+	PostUuid          string
+	LinkedCommentUuid string
+	Text              string
+	State             string
 }
 
 type CommentListDTO struct {
@@ -27,10 +27,10 @@ type CommentEditDTO struct {
 }
 
 type CommentCreateDTO struct {
-	AuthorUuid      string `json:"AuthorUuid" binding:"required"`
-	PostUuid        string `json:"PostUuid" binding:"required"`
-	Text            string `json:"Text" binding:"required"`
-	LinkedCommentId *int   `json:"LinkedCommentId,omitempty"`
+	AuthorUuid        string `json:"AuthorUuid" binding:"required"`
+	PostUuid          string `json:"PostUuid" binding:"required"`
+	Text              string `json:"Text" binding:"required"`
+	LinkedCommentUuid string `json:"LinkedCommentUuid,omitempty"`
 }
 
 type CommentDeleteDTO struct {

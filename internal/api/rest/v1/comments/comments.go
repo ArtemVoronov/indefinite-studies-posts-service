@@ -72,7 +72,7 @@ func CreateComment(c *gin.Context) {
 	}
 	commentUuid := uuid.String()
 
-	commentId, err := services.Instance().Posts().CreateComment(dto.PostUuid, commentUuid, dto.AuthorUuid, dto.Text, dto.LinkedCommentId)
+	commentId, err := services.Instance().Posts().CreateComment(dto.PostUuid, commentUuid, dto.AuthorUuid, dto.Text, dto.LinkedCommentUuid)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create comment")
 		log.Error("Unable to create comment", err.Error())
@@ -208,22 +208,20 @@ func convertComments(comments []entities.Comment, postUuid string) []CommentDTO 
 }
 
 func convertComment(comment entities.Comment, postUuid string) CommentDTO {
-	return CommentDTO{Id: comment.Id, AuthorUuid: comment.AuthorUuid, PostUuid: postUuid, LinkedCommentId: comment.LinkedCommentId, Text: comment.Text, State: comment.State}
+	return CommentDTO{Id: comment.Id, AuthorUuid: comment.AuthorUuid, PostUuid: postUuid, LinkedCommentUuid: comment.LinkedCommentUuid, Text: comment.Text, State: comment.State}
 }
 
 func toFeedCommentDTO(comment *entities.Comment, postUuid string) *feed.FeedCommentDTO {
 	result := &feed.FeedCommentDTO{
-		Uuid:           comment.Uuid,
-		AuthorUuid:     comment.AuthorUuid,
-		PostUuid:       postUuid,
-		Text:           comment.Text,
-		State:          comment.State,
-		CreateDate:     comment.CreateDate,
-		LastUpdateDate: comment.LastUpdateDate,
-	}
-
-	if comment.LinkedCommentId != nil {
-		result.LinkedCommentId = int32(*comment.LinkedCommentId)
+		Id:                int32(comment.Id),
+		Uuid:              comment.Uuid,
+		AuthorUuid:        comment.AuthorUuid,
+		PostUuid:          postUuid,
+		LinkedCommentUuid: comment.LinkedCommentUuid,
+		Text:              comment.Text,
+		State:             comment.State,
+		CreateDate:        comment.CreateDate,
+		LastUpdateDate:    comment.LastUpdateDate,
 	}
 	return result
 }

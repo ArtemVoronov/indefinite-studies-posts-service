@@ -70,7 +70,7 @@
             <column name="text" type="text">
                 <constraints nullable="false"/>
             </column>
-            <column name="linked_comment_id" type="int">
+            <column name="linked_comment_uuid" type="varchar(36)">
             </column>
             <column name="state" type="varchar(256)">
                 <constraints nullable="false"/>

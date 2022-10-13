@@ -171,7 +171,7 @@ func (s *PostsService) GetPostsWithTags(offset int, limit int, shard int) ([]ent
 	return posts, nil
 }
 
-func (s *PostsService) CreateComment(postUuid string, commentUuid string, authorUuid string, text string, linkedCommentId *int) (int, error) {
+func (s *PostsService) CreateComment(postUuid string, commentUuid string, authorUuid string, text string, linkedCommentUuid string) (int, error) {
 	var commentId int = -1
 	data, err := s.client(postUuid).Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
 		post, err := queries.GetPost(tx, ctx, postUuid)
@@ -179,11 +179,11 @@ func (s *PostsService) CreateComment(postUuid string, commentUuid string, author
 			return nil, err
 		}
 		params := &queries.CreateCommentParams{
-			Uuid:            commentUuid,
-			AuthorUuid:      authorUuid,
-			PostId:          post.Id,
-			LinkedCommentId: linkedCommentId,
-			Text:            text,
+			Uuid:              commentUuid,
+			AuthorUuid:        authorUuid,
+			PostId:            post.Id,
+			LinkedCommentUuid: linkedCommentUuid,
+			Text:              text,
 		}
 
 		result, err := queries.CreateComment(tx, ctx, params)
