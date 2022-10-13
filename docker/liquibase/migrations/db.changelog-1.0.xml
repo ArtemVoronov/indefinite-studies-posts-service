@@ -83,12 +83,10 @@
             </column>
         </createTable>
         <addUniqueConstraint tableName="posts" columnNames="uuid" constraintName="posts_uuid_unique" />
-        <addUniqueConstraint tableName="posts" columnNames="author_uuid" constraintName="posts_author_uuid_unique" />
         <sql dbms="postgresql">
             CREATE INDEX posts_uuid_hash_index ON posts USING HASH (uuid);
         </sql>
         <addUniqueConstraint tableName="comments" columnNames="uuid" constraintName="comments_uuid_unique" />
-        <addUniqueConstraint tableName="comments" columnNames="author_uuid" constraintName="comments_author_uuid_unique" />
         <sql dbms="postgresql">
             CREATE INDEX comments_uuid_hash_index ON comments USING HASH (uuid);
         </sql>
