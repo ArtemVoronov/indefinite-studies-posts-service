@@ -171,24 +171,6 @@ func (s *PostsService) GetPostsWithTags(offset int, limit int, shard int) ([]ent
 	return posts, nil
 }
 
-// TODO implement for shards
-// func (s *PostsService) GetPostsByIds(ids []int, offset int, limit int) ([]entities.Post, error) {
-// 	// TODO: get shard by post uuid
-// 	data, err := s.client.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
-// 		posts, err := queries.GetPostsByIds(tx, ctx, ids, limit, offset)
-// 		return posts, err
-// 	})()
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	posts, ok := data.([]entities.Post)
-// 	if !ok {
-// 		return nil, fmt.Errorf("unable to convert result into []entities.Post")
-// 	}
-// 	return posts, nil
-// }
-
 func (s *PostsService) CreateComment(postUuid string, commentUuid string, authorUuid string, text string, linkedCommentId *int) (int, error) {
 	var commentId int = -1
 	data, err := s.client(postUuid).Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {

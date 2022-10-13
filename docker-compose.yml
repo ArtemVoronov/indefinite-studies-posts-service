@@ -1,14 +1,14 @@
 version: "3.9"
 services:
   postgres:
-      image: postgres
-      environment:
-        POSTGRES_USER: "${DATABASE_USER}"
-        POSTGRES_PASSWORD: "${DATABASE_PASSWORD}"
-        POSTGRES_MULTIPLE_DATABASES: "${DATABASE_NAME_PREFIX}_1,${DATABASE_NAME_PREFIX}_2,${DATABASE_NAME_PREFIX}_3,${DATABASE_NAME_PREFIX}_4"
-      volumes:
-        - ./scripts/docker-postgresql-multiple-databases:/docker-entrypoint-initdb.d
-        - database-volume:/var/lib/postgresql/data
+    image: postgres
+    environment:
+      POSTGRES_USER: "${DATABASE_USER}"
+      POSTGRES_PASSWORD: "${DATABASE_PASSWORD}"
+      POSTGRES_MULTIPLE_DATABASES: "${DATABASE_NAME_PREFIX}_1,${DATABASE_NAME_PREFIX}_2,${DATABASE_NAME_PREFIX}_3,${DATABASE_NAME_PREFIX}_4"
+    volumes:
+      - ./scripts/docker-postgresql-multiple-databases:/docker-entrypoint-initdb.d
+      - database-volume:/var/lib/postgresql/data
     
   api:
     build: .

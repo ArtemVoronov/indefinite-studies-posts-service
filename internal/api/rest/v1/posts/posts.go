@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
-	"regexp"
 	"strconv"
 
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services"
@@ -22,7 +21,6 @@ func GetPosts(c *gin.Context) {
 	limitStr := c.DefaultQuery("limit", "50")
 	offsetStr := c.DefaultQuery("offset", "0")
 	shardStr := c.Query("shard")
-	// idsStr := c.DefaultQuery("ids", "")
 
 	limit, err := strconv.Atoi(limitStr)
 	if err != nil {
@@ -41,19 +39,8 @@ func GetPosts(c *gin.Context) {
 		return
 	}
 
-	var list []entities.PostWithTags
-	// TODO: implement for shards
-	// if idsStr != "" {
-	// 	ids, castErr := convertIdsQueryParam(idsStr)
-	// 	if castErr != nil {
-	// 		c.JSON(http.StatusInternalServerError, "Unable to get posts by ids")
-	// 		log.Error("Error during casting 'ids' query param", castErr.Error())
-	// 		return
-	// 	}
-	// 	postsList, err = services.Instance().Posts().GetPostsByIds(ids, offset, limit)
-	// } else {
-	list, err = services.Instance().Posts().GetPostsWithTags(offset, limit, shard)
-	// }
+	list, err := services.Instance().Posts().GetPostsWithTags(offset, limit, shard)
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to get posts")
 		log.Error("Unable to get posts", err.Error())
@@ -259,18 +246,4 @@ func ToFeedPostDTO(post *entities.PostWithTags) *feed.FeedPostDTO {
 		LastUpdateDate: post.LastUpdateDate,
 		Tags:           post.Tags,
 	}
-}
-
-func convertIdsQueryParam(idsQueryParam string) ([]int, error) {
-	re := regexp.MustCompile(",")
-	tokens := re.Split(idsQueryParam, -1)
-	result := make([]int, 0, len(tokens))
-	for _, token := range tokens {
-		postId, parseErr := strconv.Atoi(token)
-		if parseErr != nil {
-			return nil, parseErr
-		}
-		result = append(result, postId)
-	}
-	return result, nil
 }

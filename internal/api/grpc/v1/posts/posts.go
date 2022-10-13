@@ -38,11 +38,7 @@ func (s *PostsServiceServer) GetPosts(ctx context.Context, in *posts.GetPostsReq
 	var postsList []entities.PostWithTags
 	var err error
 
-	// if len(in.GetIds()) > 0 {
-	// 	postsList, err = services.Instance().Posts().GetPostsByIds(utils.Int32SliceToIntSlice(in.GetIds()), int(in.Offset), int(in.Limit))
-	// } else {
 	postsList, err = services.Instance().Posts().GetPostsWithTags(int(in.GetOffset()), int(in.GetLimit()), int(in.GetShard()))
-	// }
 
 	if err != nil {
 		if err == sql.ErrNoRows {
