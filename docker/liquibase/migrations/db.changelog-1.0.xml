@@ -61,7 +61,7 @@
             <column name="uuid" type="varchar(36)">
                 <constraints nullable="false"/>
             </column>
-            <column name="author_id" type="int">
+            <column name="author_uuid" type="varchar(36)">
                 <constraints nullable="false"/>
             </column>
             <column name="post_id" type="int">

@@ -110,7 +110,7 @@ func CreatePost(c *gin.Context) {
 
 	postUuid := uuid.String()
 
-	postId, err := services.Instance().Posts().CreatePost(postUuid, dto.AuthorId, dto.Text, dto.PreviewText, dto.Topic)
+	postId, err := services.Instance().Posts().CreatePost(postUuid, dto.AuthorUuid, dto.Text, dto.PreviewText, dto.Topic)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create post")
 		log.Error("Unable to create post", err.Error())
@@ -165,7 +165,7 @@ func UpdatePost(c *gin.Context) {
 		}
 	}
 
-	err := services.Instance().Posts().UpdatePost(dto.Uuid, dto.AuthorId, dto.Text, dto.PreviewText, dto.Topic, nil)
+	err := services.Instance().Posts().UpdatePost(dto.Uuid, dto.AuthorUuid, dto.Text, dto.PreviewText, dto.Topic, nil)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
@@ -244,13 +244,13 @@ func convertPosts(input []entities.PostWithTags) []PostDTO {
 }
 
 func convertPost(input entities.PostWithTags) PostDTO {
-	return PostDTO{Uuid: input.Uuid, Text: input.Text, PreviewText: input.PreviewText, Topic: input.Topic, AuthorId: input.AuthorId, State: input.State, Tags: input.Tags}
+	return PostDTO{Uuid: input.Uuid, Text: input.Text, PreviewText: input.PreviewText, Topic: input.Topic, AuthorUuid: input.AuthorUuid, State: input.State, Tags: input.Tags}
 }
 
 func ToFeedPostDTO(post *entities.PostWithTags) *feed.FeedPostDTO {
 	return &feed.FeedPostDTO{
 		Uuid:           post.Uuid,
-		AuthorId:       int32(post.AuthorId),
+		AuthorUuid:     post.AuthorUuid,
 		Text:           post.Text,
 		PreviewText:    post.PreviewText,
 		Topic:          post.Topic,

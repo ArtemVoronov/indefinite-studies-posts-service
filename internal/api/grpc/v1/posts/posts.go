@@ -41,7 +41,7 @@ func (s *PostsServiceServer) GetPosts(ctx context.Context, in *posts.GetPostsReq
 	// if len(in.GetIds()) > 0 {
 	// 	postsList, err = services.Instance().Posts().GetPostsByIds(utils.Int32SliceToIntSlice(in.GetIds()), int(in.Offset), int(in.Limit))
 	// } else {
-	postsList, err = services.Instance().Posts().GetPostsWithTags(int(in.Offset), int(in.Limit), int(in.Shard))
+	postsList, err = services.Instance().Posts().GetPostsWithTags(int(in.GetOffset()), int(in.GetLimit()), int(in.GetShard()))
 	// }
 
 	if err != nil {
@@ -83,7 +83,7 @@ func (s *PostsServiceServer) GetComments(ctx context.Context, in *posts.GetComme
 	var commentsList []entities.Comment
 	var err error
 
-	commentsList, err = services.Instance().Posts().GetComments(in.GetPostUuid(), int(in.Offset), int(in.Limit))
+	commentsList, err = services.Instance().Posts().GetComments(in.GetPostUuid(), int(in.GetOffset()), int(in.GetLimit()))
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -110,7 +110,7 @@ func (s *PostsServiceServer) GetCommentsStream(stream posts.PostsService_GetComm
 func toGetPostReply(post entities.PostWithTags) *posts.GetPostReply {
 	return &posts.GetPostReply{
 		Uuid:           post.Uuid,
-		AuthorId:       int32(post.AuthorId),
+		AuthorUuid:     post.AuthorUuid,
 		Text:           post.Text,
 		PreviewText:    post.PreviewText,
 		Topic:          post.Topic,
@@ -134,7 +134,7 @@ func toGetCommentReply(comment entities.Comment, postUuid string) *posts.GetComm
 	return &posts.GetCommentReply{
 		Id:              int32(comment.Id),
 		Uuid:            comment.Uuid,
-		AuthorId:        int32(comment.AuthorId),
+		AuthorUuid:      comment.AuthorUuid,
 		PostUuid:        postUuid,
 		LinkedCommentId: utils.IntPtrToInt32(comment.LinkedCommentId),
 		Text:            comment.Text,

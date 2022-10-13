@@ -11,7 +11,7 @@ import (
 
 type CreateCommentParams struct {
 	Uuid            interface{}
-	AuthorId        interface{}
+	AuthorUuid      interface{}
 	PostId          interface{}
 	Text            interface{}
 	LinkedCommentId interface{}
@@ -19,7 +19,7 @@ type CreateCommentParams struct {
 
 type UpdateCommentParams struct {
 	Id              interface{}
-	AuthorId        interface{}
+	AuthorUuid      interface{}
 	PostId          interface{}
 	Text            interface{}
 	LinkedCommentId interface{}
@@ -28,18 +28,18 @@ type UpdateCommentParams struct {
 
 const (
 	GET_COMMENTS_QUERY = `SELECT 
-		id, uuid, author_id, text, linked_comment_id, state, create_date, last_update_date 
+		id, uuid, author_uuid, text, linked_comment_id, state, create_date, last_update_date 
 	FROM comments 
 	WHERE state != $4 and post_id = $1
 	LIMIT $2 OFFSET $3`
 
 	GET_COMMENT_QUERY = `SELECT 
-		id, uuid, author_id, post_id, text, linked_comment_id, state, create_date, last_update_date 
+		id, uuid, author_uuid, post_id, text, linked_comment_id, state, create_date, last_update_date 
 	FROM comments 
 	WHERE id = $1 and state != $2`
 
 	CREATE_COMMENT_QUERY = `INSERT INTO comments
-		(uuid, author_id, post_id, text, linked_comment_id, state, create_date, last_update_date) 
+		(uuid, author_uuid, post_id, text, linked_comment_id, state, create_date, last_update_date) 
 		VALUES($1, $2, $3, $4, $5, $6, $7, $8) 
 	RETURNING id`
 
@@ -68,7 +68,7 @@ func GetComments(tx *sql.Tx, ctx context.Context, postId int, limit int, offset 
 	var (
 		id              int
 		uuid            string
-		authorId        int
+		authorUuid      string
 		linkedCommentId sql.NullInt32
 		text            string
 		state           string
@@ -83,11 +83,11 @@ func GetComments(tx *sql.Tx, ctx context.Context, postId int, limit int, offset 
 	defer rows.Close()
 
 	for rows.Next() {
-		err := rows.Scan(&id, &uuid, &authorId, &text, &linkedCommentId, &state, &createDate, &lastUpdateDate)
+		err := rows.Scan(&id, &uuid, &authorUuid, &text, &linkedCommentId, &state, &createDate, &lastUpdateDate)
 		if err != nil {
 			return comments, fmt.Errorf("error at loading comments from db, case iterating and using rows.Scan: %s", err)
 		}
-		comments = append(comments, entities.Comment{Id: id, Uuid: uuid, AuthorId: authorId, PostId: postId, LinkedCommentId: toIntPtr(linkedCommentId), Text: text, State: state, CreateDate: createDate, LastUpdateDate: lastUpdateDate})
+		comments = append(comments, entities.Comment{Id: id, Uuid: uuid, AuthorUuid: authorUuid, PostId: postId, LinkedCommentId: toIntPtr(linkedCommentId), Text: text, State: state, CreateDate: createDate, LastUpdateDate: lastUpdateDate})
 	}
 	err = rows.Err()
 	if err != nil {
@@ -101,7 +101,7 @@ func GetComment(tx *sql.Tx, ctx context.Context, id int) (entities.Comment, erro
 	var comment entities.Comment
 
 	err := tx.QueryRowContext(ctx, GET_COMMENT_QUERY, id, entities.COMMENT_STATE_DELETED).
-		Scan(&comment.Id, &comment.Uuid, &comment.AuthorId, &comment.PostId, &comment.Text, &comment.LinkedCommentId, &comment.State, &comment.CreateDate, &comment.LastUpdateDate)
+		Scan(&comment.Id, &comment.Uuid, &comment.AuthorUuid, &comment.PostId, &comment.Text, &comment.LinkedCommentId, &comment.State, &comment.CreateDate, &comment.LastUpdateDate)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return comment, err
@@ -120,10 +120,10 @@ func CreateComment(tx *sql.Tx, ctx context.Context, params *CreateCommentParams)
 	lastUpdateDate := time.Now()
 
 	err := tx.QueryRowContext(ctx, CREATE_COMMENT_QUERY,
-		params.Uuid, params.AuthorId, params.PostId, params.Text, params.LinkedCommentId, entities.COMMENT_STATE_NEW, createDate, lastUpdateDate).
+		params.Uuid, params.AuthorUuid, params.PostId, params.Text, params.LinkedCommentId, entities.COMMENT_STATE_NEW, createDate, lastUpdateDate).
 		Scan(&lastInsertId) // scan will release the connection
 	if err != nil {
-		return -1, fmt.Errorf("error at inserting comment (PostId: '%v', AuthorId: '%v') into db, case after QueryRow.Scan: %s", params.PostId, params.AuthorId, err)
+		return -1, fmt.Errorf("error at inserting comment (PostId: '%v', AuthorUuid: '%v') into db, case after QueryRow.Scan: %s", params.PostId, params.AuthorUuid, err)
 	}
 
 	return lastInsertId, nil
@@ -138,12 +138,12 @@ func UpdateComment(tx *sql.Tx, ctx context.Context, params *UpdateCommentParams)
 	}
 	res, err := stmt.ExecContext(ctx, params.Id, params.Text, params.State, lastUpdateDate, entities.COMMENT_STATE_DELETED)
 	if err != nil {
-		return fmt.Errorf("error at updating comment (Id: %v, AuthorId: '%v', PostId: '%v'), case after executing statement: %s", params.Id, params.AuthorId, params.PostId, err)
+		return fmt.Errorf("error at updating comment (Id: %v, AuthorUuid: '%v', PostId: '%v'), case after executing statement: %s", params.Id, params.AuthorUuid, params.PostId, err)
 	}
 
 	affectedRowsCount, err := res.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("error at updating comment (Id: %v, AuthorId: '%v', PostId: '%v'), case after counting affected rows: %s", params.Id, params.AuthorId, params.PostId, err)
+		return fmt.Errorf("error at updating comment (Id: %v, AuthorUuid: '%v', PostId: '%v'), case after counting affected rows: %s", params.Id, params.AuthorUuid, params.PostId, err)
 	}
 	if affectedRowsCount == 0 {
 		return sql.ErrNoRows

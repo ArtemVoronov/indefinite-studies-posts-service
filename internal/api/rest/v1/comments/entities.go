@@ -3,7 +3,7 @@ package comments
 type CommentDTO struct {
 	Id              int
 	Uuid            string
-	AuthorId        int
+	AuthorUuid      string
 	PostUuid        string
 	LinkedCommentId *int
 	Text            string
@@ -23,11 +23,11 @@ type CommentEditDTO struct {
 	PostUuid    string  `json:"PostUuid" binding:"required"`
 	Text        *string `json:"Text,omitempty"`
 	State       *string `json:"State,omitempty"`
-	AuthorId    int     `json:"AuthorId" binding:"required"`
+	AuthorUuid  string  `json:"AuthorUuid" binding:"required"`
 }
 
 type CommentCreateDTO struct {
-	AuthorId        int    `json:"AuthorId" binding:"required"`
+	AuthorUuid      string `json:"AuthorUuid" binding:"required"`
 	PostUuid        string `json:"PostUuid" binding:"required"`
 	Text            string `json:"Text" binding:"required"`
 	LinkedCommentId *int   `json:"LinkedCommentId,omitempty"`

@@ -5,7 +5,7 @@ import "time"
 type Comment struct {
 	Id              int
 	Uuid            string
-	AuthorId        int
+	AuthorUuid      string
 	PostId          int
 	LinkedCommentId *int
 	Text            string

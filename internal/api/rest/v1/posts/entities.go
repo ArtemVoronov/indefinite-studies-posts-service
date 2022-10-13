@@ -2,7 +2,7 @@ package posts
 
 type PostDTO struct {
 	Uuid        string
-	AuthorId    int
+	AuthorUuid  string
 	Text        string
 	PreviewText string
 	Topic       string
@@ -20,7 +20,7 @@ type PostListDTO struct {
 
 type PostEditDTO struct {
 	Uuid        string  `json:"Uuid" binding:"required"`
-	AuthorId    *int    `json:"AuthorId,omitempty"`
+	AuthorUuid  *string `json:"AuthorUuid,omitempty"`
 	Text        *string `json:"Text,omitempty"`
 	PreviewText *string `json:"PreviewText,omitempty"`
 	Topic       *string `json:"Topic,omitempty"`
@@ -28,7 +28,7 @@ type PostEditDTO struct {
 }
 
 type PostCreateDTO struct {
-	AuthorId    int    `json:"authorId" binding:"required"`
+	AuthorUuid  string `json:"AuthorUuid" binding:"required"`
 	Text        string `json:"text" binding:"required"`
 	PreviewText string `json:"previewText" binding:"required"`
 	Topic       string `json:"topic" binding:"required"`

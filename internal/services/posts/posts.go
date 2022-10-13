@@ -43,17 +43,17 @@ func (s *PostsService) Shutdown() error {
 
 func (s *PostsService) client(postUuid string) *db.PostgreSQLService {
 	bucketIndex := s.shardService.GetBucketIndex(postUuid)
-	bucket := s.shardService.GetBucket(bucketIndex)
+	bucket := s.shardService.GetBucketByIndex(bucketIndex)
 	log.Info(fmt.Sprintf("bucket: %v\tbucketIndex: %v", bucket, bucketIndex))
 	return s.clientShards[bucket]
 }
 
-func (s *PostsService) CreatePost(postUuid string, authorId int, text string, previewText string, topic string) (int, error) {
+func (s *PostsService) CreatePost(postUuid string, authorUuid string, text string, previewText string, topic string) (int, error) {
 	var postId int = -1
 	data, err := s.client(postUuid).Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
 		params := &queries.CreatePostParams{
 			Uuid:        postUuid,
-			AuthorId:    authorId,
+			AuthorUuid:  authorUuid,
 			Text:        text,
 			PreviewText: previewText,
 			Topic:       topic,
@@ -73,11 +73,11 @@ func (s *PostsService) CreatePost(postUuid string, authorId int, text string, pr
 	return postId, nil
 }
 
-func (s *PostsService) UpdatePost(postUuid string, authorId *int, text *string, previewText *string, topic *string, state *string) error {
+func (s *PostsService) UpdatePost(postUuid string, authorUuid *string, text *string, previewText *string, topic *string, state *string) error {
 	return s.client(postUuid).TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 		params := &queries.UpdatePostParams{
 			Uuid:        postUuid,
-			AuthorId:    authorId,
+			AuthorUuid:  authorUuid,
 			Text:        text,
 			PreviewText: previewText,
 			Topic:       topic,
@@ -189,7 +189,7 @@ func (s *PostsService) GetPostsWithTags(offset int, limit int, shard int) ([]ent
 // 	return posts, nil
 // }
 
-func (s *PostsService) CreateComment(postUuid string, commentUuid string, AuthorId int, Text string, LinkedCommentId *int) (int, error) {
+func (s *PostsService) CreateComment(postUuid string, commentUuid string, authorUuid string, text string, linkedCommentId *int) (int, error) {
 	var commentId int = -1
 	data, err := s.client(postUuid).Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
 		post, err := queries.GetPost(tx, ctx, postUuid)
@@ -198,10 +198,10 @@ func (s *PostsService) CreateComment(postUuid string, commentUuid string, Author
 		}
 		params := &queries.CreateCommentParams{
 			Uuid:            commentUuid,
-			AuthorId:        AuthorId,
+			AuthorUuid:      authorUuid,
 			PostId:          post.Id,
-			LinkedCommentId: LinkedCommentId,
-			Text:            Text,
+			LinkedCommentId: linkedCommentId,
+			Text:            text,
 		}
 
 		result, err := queries.CreateComment(tx, ctx, params)

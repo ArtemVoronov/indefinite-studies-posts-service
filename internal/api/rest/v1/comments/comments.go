@@ -72,7 +72,7 @@ func CreateComment(c *gin.Context) {
 	}
 	commentUuid := uuid.String()
 
-	commentId, err := services.Instance().Posts().CreateComment(dto.PostUuid, commentUuid, dto.AuthorId, dto.Text, dto.LinkedCommentId)
+	commentId, err := services.Instance().Posts().CreateComment(dto.PostUuid, commentUuid, dto.AuthorUuid, dto.Text, dto.LinkedCommentId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create comment")
 		log.Error("Unable to create comment", err.Error())
@@ -105,16 +105,16 @@ func UpdateComment(c *gin.Context) {
 		return
 	}
 
-	if !app.IsSameUser(c, dto.AuthorId) && !app.HasOwnerRole(c) {
+	if !app.IsSameUser(c, dto.AuthorUuid) && !app.HasOwnerRole(c) {
 		c.JSON(http.StatusForbidden, "Forbidden")
-		log.Info(fmt.Sprintf("Forbidden to update comment. Author ID: %v", dto.AuthorId))
+		log.Info(fmt.Sprintf("Forbidden to update comment. Author UUID: %v", dto.AuthorUuid))
 		return
 	}
 
 	if dto.State != nil {
 		if !app.HasOwnerRole(c) {
 			c.JSON(http.StatusForbidden, "Forbidden")
-			log.Info(fmt.Sprintf("Forbidden to update comment state. Author ID: %v", dto.AuthorId))
+			log.Info(fmt.Sprintf("Forbidden to update comment state. Author UUID: %v", dto.AuthorUuid))
 			return
 		}
 		if *dto.State == entities.COMMENT_STATE_DELETED {
@@ -208,13 +208,13 @@ func convertComments(comments []entities.Comment, postUuid string) []CommentDTO 
 }
 
 func convertComment(comment entities.Comment, postUuid string) CommentDTO {
-	return CommentDTO{Id: comment.Id, AuthorId: comment.AuthorId, PostUuid: postUuid, LinkedCommentId: comment.LinkedCommentId, Text: comment.Text, State: comment.State}
+	return CommentDTO{Id: comment.Id, AuthorUuid: comment.AuthorUuid, PostUuid: postUuid, LinkedCommentId: comment.LinkedCommentId, Text: comment.Text, State: comment.State}
 }
 
 func toFeedCommentDTO(comment *entities.Comment, postUuid string) *feed.FeedCommentDTO {
 	result := &feed.FeedCommentDTO{
 		Uuid:           comment.Uuid,
-		AuthorId:       int32(comment.AuthorId),
+		AuthorUuid:     comment.AuthorUuid,
 		PostUuid:       postUuid,
 		Text:           comment.Text,
 		State:          comment.State,

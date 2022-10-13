@@ -5,7 +5,7 @@ import "time"
 type Post struct {
 	Id             int
 	Uuid           string
-	AuthorId       int
+	AuthorUuid     string
 	Text           string
 	PreviewText    string
 	Topic          string
