@@ -7,7 +7,7 @@ type PostDTO struct {
 	PreviewText string
 	Topic       string
 	State       string
-	Tags        []string
+	TagIds      []int
 }
 
 type PostListDTO struct {

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/entities"
@@ -38,10 +39,10 @@ const (
 	LIMIT $1 OFFSET $2`
 
 	GET_POSTS_WITH_TAGS_QUERY = `SELECT 
-		posts.id, posts.uuid, posts.author_uuid, posts.text, posts.preview_text, posts.topic, posts.state, posts.create_date, posts.last_update_date, COALESCE(string_agg(tags.name, ','), '') as tags
+		posts.id, posts.uuid, posts.author_uuid, posts.text, posts.preview_text, posts.topic, posts.state, posts.create_date, posts.last_update_date, 
+		array_agg(posts_and_tags.tag_id) as tags
 	FROM posts 
 	LEFT OUTER JOIN posts_and_tags ON posts.id = posts_and_tags.post_id
-	LEFT OUTER JOIN tags ON posts_and_tags.tag_id = tags.id
 	WHERE state != $3 
 	GROUP BY posts.id, posts.uuid, posts.author_uuid, posts.text, posts.preview_text, posts.topic, posts.state, posts.create_date, posts.last_update_date
 	ORDER BY posts.id ASC
@@ -72,10 +73,10 @@ const (
 	WHERE uuid = $1 and state != $2`
 
 	GET_POST_WITH_TAGS_BY_UUID_QUERY = `SELECT 
-		posts.id, posts.uuid, posts.author_uuid, posts.text, posts.preview_text, posts.topic, posts.state, posts.create_date, posts.last_update_date, COALESCE(string_agg(tags.name, ','), '') as tags 
+		posts.id, posts.uuid, posts.author_uuid, posts.text, posts.preview_text, posts.topic, posts.state, posts.create_date, posts.last_update_date, 
+		array_agg(posts_and_tags.tag_id) as tags 
 	FROM posts 
 	LEFT OUTER JOIN posts_and_tags ON posts.id = posts_and_tags.post_id
-	LEFT OUTER JOIN tags ON posts_and_tags.tag_id = tags.id
 	WHERE uuid = $1 and state != $2
 	GROUP BY posts.id, posts.uuid, posts.author_uuid, posts.text, posts.preview_text, posts.topic, posts.state, posts.create_date, posts.last_update_date`
 
@@ -158,7 +159,7 @@ func GetPostsWithTags(tx *sql.Tx, ctx context.Context, limit int, offset int) ([
 		state          string
 		createDate     time.Time
 		lastUpdateDate time.Time
-		tags           string
+		tagsAggregated string
 	)
 
 	rows, err := tx.QueryContext(ctx, GET_POSTS_WITH_TAGS_QUERY, limit, offset, entities.POST_STATE_DELETED)
@@ -168,9 +169,13 @@ func GetPostsWithTags(tx *sql.Tx, ctx context.Context, limit int, offset int) ([
 	defer rows.Close()
 
 	for rows.Next() {
-		err := rows.Scan(&id, &uuid, &authorUuid, &text, &previewText, &topic, &state, &createDate, &lastUpdateDate, &tags)
+		err := rows.Scan(&id, &uuid, &authorUuid, &text, &previewText, &topic, &state, &createDate, &lastUpdateDate, &tagsAggregated)
 		if err != nil {
 			return posts, fmt.Errorf("error at loading posts, case iterating and using rows.Scan: %s", err)
+		}
+		tagIds, err := convertTagsInt(tagsAggregated)
+		if err != nil {
+			return posts, fmt.Errorf("error at loading posts, converting tag ids: %s", err)
 		}
 		posts = append(posts, entities.PostWithTags{
 			Post: entities.Post{
@@ -184,7 +189,7 @@ func GetPostsWithTags(tx *sql.Tx, ctx context.Context, limit int, offset int) ([
 				CreateDate:     createDate,
 				LastUpdateDate: lastUpdateDate,
 			},
-			Tags: convertTags(tags),
+			TagIds: tagIds,
 		})
 	}
 	err = rows.Err()
@@ -247,10 +252,10 @@ func GetPost(tx *sql.Tx, ctx context.Context, uuid string) (entities.Post, error
 
 func GetPostWithTags(tx *sql.Tx, ctx context.Context, uuid string) (entities.PostWithTags, error) {
 	var post entities.PostWithTags
-	var tags string
+	var tagsAggregated string
 
 	err := tx.QueryRowContext(ctx, GET_POST_WITH_TAGS_BY_UUID_QUERY, uuid, entities.POST_STATE_DELETED).
-		Scan(&post.Id, &post.Uuid, &post.AuthorUuid, &post.Text, &post.PreviewText, &post.Topic, &post.State, &post.CreateDate, &post.LastUpdateDate, &tags)
+		Scan(&post.Id, &post.Uuid, &post.AuthorUuid, &post.Text, &post.PreviewText, &post.Topic, &post.State, &post.CreateDate, &post.LastUpdateDate, &tagsAggregated)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return post, err
@@ -259,7 +264,12 @@ func GetPostWithTags(tx *sql.Tx, ctx context.Context, uuid string) (entities.Pos
 		}
 	}
 
-	post.Tags = convertTags(tags)
+	tagIds, err := convertTagsInt(tagsAggregated)
+	if err != nil {
+		return post, fmt.Errorf("error at loading posts, converting tag ids: %s", err)
+	}
+
+	post.TagIds = tagIds
 
 	return post, nil
 }
@@ -322,10 +332,20 @@ func DeletePost(tx *sql.Tx, ctx context.Context, uuid string) error {
 	return nil
 }
 
-func convertTags(input string) []string {
-	if input == "" {
-		return []string{}
+func convertTagsInt(input string) ([]int, error) {
+	resut := []int{}
+	if input == "{NULL}" {
+		return resut, nil
 	}
 
-	return tagsRegexp.Split(input, -1)
+	tokens := tagsRegexp.Split(input[1:len(input)-1], -1)
+	for _, token := range tokens {
+		id, err := strconv.Atoi(token)
+		if err != nil {
+			return nil, err
+		}
+		resut = append(resut, id)
+
+	}
+	return resut, nil
 }

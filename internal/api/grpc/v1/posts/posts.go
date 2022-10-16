@@ -9,6 +9,7 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/entities"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/posts"
+	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -102,6 +103,42 @@ func (s *PostsServiceServer) GetCommentsStream(stream posts.PostsService_GetComm
 	return fmt.Errorf("NOT IMPLEMENTED")
 }
 
+func (s *PostsServiceServer) GetTag(ctx context.Context, in *posts.GetTagRequest) (*posts.GetTagReply, error) {
+	tag, err := services.Instance().Posts().GetTag(int(in.GetId()))
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf(api.PAGE_NOT_FOUND)
+		} else {
+			return nil, err
+		}
+	}
+	return toGetTagReply(tag), nil
+}
+
+func (s *PostsServiceServer) GetTags(ctx context.Context, in *posts.GetTagsRequest) (*posts.GetTagsReply, error) {
+	var tagsList []entities.Tag
+	var err error
+
+	tagsList, err = services.Instance().Posts().GetTags(int(in.GetOffset()), int(in.GetLimit()))
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf(api.PAGE_NOT_FOUND)
+		} else {
+			return nil, err
+		}
+	}
+
+	result := &posts.GetTagsReply{
+		Offset: in.Offset,
+		Limit:  in.Limit,
+		Count:  int32(len(tagsList)),
+		Tags:   toGetTagReplies(tagsList),
+	}
+
+	return result, nil
+}
+
 func toGetPostReply(post entities.PostWithTags) *posts.GetPostReply {
 	return &posts.GetPostReply{
 		Uuid:           post.Uuid,
@@ -112,7 +149,7 @@ func toGetPostReply(post entities.PostWithTags) *posts.GetPostReply {
 		State:          post.State,
 		CreateDate:     timestamppb.New(post.CreateDate),
 		LastUpdateDate: timestamppb.New(post.LastUpdateDate),
-		Tags:           post.Tags,
+		TagIds:         utils.ToInt32(post.TagIds),
 	}
 }
 
@@ -143,6 +180,22 @@ func toGetCommentReplies(input []entities.Comment, postUuid string) []*posts.Get
 	replies := []*posts.GetCommentReply{}
 	for _, p := range input {
 		reply := toGetCommentReply(p, postUuid)
+		replies = append(replies, reply)
+	}
+	return replies
+}
+
+func toGetTagReply(tag entities.Tag) *posts.GetTagReply {
+	return &posts.GetTagReply{
+		Id:   int32(tag.Id),
+		Name: tag.Name,
+	}
+}
+
+func toGetTagReplies(input []entities.Tag) []*posts.GetTagReply {
+	replies := []*posts.GetTagReply{}
+	for _, p := range input {
+		reply := toGetTagReply(p)
 		replies = append(replies, reply)
 	}
 	return replies

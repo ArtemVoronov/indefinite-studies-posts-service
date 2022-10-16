@@ -91,6 +91,13 @@ func CreateTag(c *gin.Context) {
 		return
 	}
 
+	err = services.Instance().Feed().UpdateTag(posts.ToFeedTagDTO(tagId, dto.Name))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, "Unable to update tag")
+		log.Error("Unable to update tag at feed service", err.Error())
+		return
+	}
+
 	log.Info(fmt.Sprintf("Created tag. Id: %v", tagId))
 
 	c.JSON(http.StatusCreated, tagId)
@@ -111,6 +118,13 @@ func UpdateTag(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, "Unable to update tag")
 			log.Error("Unable to update tag", err.Error())
 		}
+		return
+	}
+
+	err = services.Instance().Feed().UpdateTag(posts.ToFeedTagDTO(dto.Id, dto.Name))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, "Unable to update tag")
+		log.Error("Unable to update tag at feed service", err.Error())
 		return
 	}
 
@@ -141,15 +155,15 @@ func AssignTag(c *gin.Context) {
 
 	post, err := services.Instance().Posts().GetPostWithTags(dto.PostUuid)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, "Unable to create post")
-		log.Error("Unable to get post after creation", err.Error())
+		c.JSON(http.StatusInternalServerError, "Unable to assign tag to post")
+		log.Error("Unable to get post after tag assigning", err.Error())
 		return
 	}
 
 	err = services.Instance().Feed().UpdatePost(posts.ToFeedPostDTO(&post))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, "Unable to create post")
-		log.Error("Unable to create post at feed service", err.Error())
+		c.JSON(http.StatusInternalServerError, "Unable to assign tag to post")
+		log.Error("Unable to update post at feed service after tag assigning", err.Error())
 		return
 	}
 
@@ -178,15 +192,15 @@ func RemoveTag(c *gin.Context) {
 
 	post, err := services.Instance().Posts().GetPostWithTags(dto.PostUuid)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, "Unable to create post")
-		log.Error("Unable to get post after creation", err.Error())
+		c.JSON(http.StatusInternalServerError, "Unable to remove tag from post")
+		log.Error("Unable to get post after tag removing", err.Error())
 		return
 	}
 
 	err = services.Instance().Feed().UpdatePost(posts.ToFeedPostDTO(&post))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, "Unable to create post")
-		log.Error("Unable to create post at feed service", err.Error())
+		c.JSON(http.StatusInternalServerError, "Unable to remove tag from post")
+		log.Error("Unable to update post at feed service after tag removing", err.Error())
 		return
 	}
 

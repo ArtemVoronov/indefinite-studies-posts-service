@@ -231,7 +231,22 @@ func convertPosts(input []entities.PostWithTags) []PostDTO {
 }
 
 func convertPost(input entities.PostWithTags) PostDTO {
-	return PostDTO{Uuid: input.Uuid, Text: input.Text, PreviewText: input.PreviewText, Topic: input.Topic, AuthorUuid: input.AuthorUuid, State: input.State, Tags: input.Tags}
+	return PostDTO{
+		Uuid:        input.Uuid,
+		Text:        input.Text,
+		PreviewText: input.PreviewText,
+		Topic:       input.Topic,
+		AuthorUuid:  input.AuthorUuid,
+		State:       input.State,
+		TagIds:      input.TagIds,
+	}
+}
+
+func convertTag(input entities.Tag) *feed.FeedTagDTO {
+	return &feed.FeedTagDTO{
+		Id:   input.Id,
+		Name: input.Name,
+	}
 }
 
 func ToFeedPostDTO(post *entities.PostWithTags) *feed.FeedPostDTO {
@@ -244,6 +259,13 @@ func ToFeedPostDTO(post *entities.PostWithTags) *feed.FeedPostDTO {
 		State:          post.State,
 		CreateDate:     post.CreateDate,
 		LastUpdateDate: post.LastUpdateDate,
-		Tags:           post.Tags,
+		TagIds:         post.TagIds,
+	}
+}
+
+func ToFeedTagDTO(tagId int, name string) *feed.FeedTagDTO {
+	return &feed.FeedTagDTO{
+		Id:   tagId,
+		Name: name,
 	}
 }

@@ -16,7 +16,7 @@ type Post struct {
 
 type PostWithTags struct {
 	Post
-	Tags []string
+	TagIds []int
 }
 
 const (
