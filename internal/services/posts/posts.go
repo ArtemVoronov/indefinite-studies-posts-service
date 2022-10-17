@@ -375,7 +375,11 @@ func (s *PostsService) AssignTagToPost(postUuid string, tagId int) error {
 		if err != nil {
 			return err
 		}
-		return queries.AssignTagToPost(tx, ctx, post.Id, tagId)
+		err = queries.AssignTagToPost(tx, ctx, post.Id, tagId)
+		if err != nil && err != queries.ErrorPostTagDuplicateKey {
+			return err
+		}
+		return nil
 	})()
 }
 
@@ -396,5 +400,37 @@ func (s *PostsService) RemoveAllTagsFromPost(postUuid string) error {
 			return err
 		}
 		return queries.RemoveAllTagsFromPost(tx, ctx, post.Id)
+	})()
+}
+
+func (s *PostsService) AssignTagsToPost(postUuid string, tagIds []int) error {
+	return s.client(postUuid).TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+		post, err := queries.GetPost(tx, ctx, postUuid)
+		if err != nil {
+			return err
+		}
+		for _, tagId := range tagIds {
+			err = queries.AssignTagToPost(tx, ctx, post.Id, tagId)
+			if err != nil && err != queries.ErrorPostTagDuplicateKey {
+				return err
+			}
+		}
+		return nil
+	})()
+}
+
+func (s *PostsService) RemoveTagsFromPost(postUuid string, tagIds []int) error {
+	return s.client(postUuid).TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+		post, err := queries.GetPost(tx, ctx, postUuid)
+		if err != nil {
+			return err
+		}
+		for _, tagId := range tagIds {
+			err = queries.RemoveTagFromPost(tx, ctx, post.Id, tagId)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
 	})()
 }

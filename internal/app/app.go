@@ -82,8 +82,8 @@ func createRestApi(logger *logrus.Logger) *gin.Engine {
 
 		authorized.POST("/posts/tags/", app.RequiredOwnerRole(), tagsRestApi.CreateTag)
 		authorized.PUT("/posts/tags/", app.RequiredOwnerRole(), tagsRestApi.UpdateTag)
-		authorized.PUT("/posts/tags/assign", app.RequiredOwnerRole(), tagsRestApi.AssignTag)
-		authorized.PUT("/posts/tags/remove", app.RequiredOwnerRole(), tagsRestApi.RemoveTag)
+		authorized.PUT("/posts/tags/assign", app.RequiredOwnerRole(), tagsRestApi.AssignTags)
+		authorized.PUT("/posts/tags/remove", app.RequiredOwnerRole(), tagsRestApi.RemoveTags)
 	}
 
 	return router

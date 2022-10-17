@@ -27,5 +27,5 @@ type TagDeleteDTO struct {
 
 type PostTagConnectionDTO struct {
 	PostUuid string `json:"PostUuid" binding:"required"`
-	TagId    int    `json:"TagId" binding:"required"`
+	TagIds   []int  `json:"TagIds" binding:"required"`
 }

@@ -133,14 +133,14 @@ func UpdateTag(c *gin.Context) {
 	c.JSON(http.StatusOK, api.DONE)
 }
 
-func AssignTag(c *gin.Context) {
+func AssignTags(c *gin.Context) {
 	var dto PostTagConnectionDTO
 	if err := c.ShouldBindJSON(&dto); err != nil {
 		validation.SendError(c, err)
 		return
 	}
 
-	err := services.Instance().Posts().AssignTagToPost(dto.PostUuid, dto.TagId)
+	err := services.Instance().Posts().AssignTagsToPost(dto.PostUuid, dto.TagIds)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
@@ -151,11 +151,11 @@ func AssignTag(c *gin.Context) {
 		return
 	}
 
-	log.Info(fmt.Sprintf("Assigned tag to post. TagId: %v. Post UUID: %v", dto.TagId, dto.PostUuid))
+	log.Info(fmt.Sprintf("Assigned tags to post. TagIds: %v. Post UUID: %v", dto.TagIds, dto.PostUuid))
 
 	post, err := services.Instance().Posts().GetPostWithTags(dto.PostUuid)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, "Unable to assign tag to post")
+		c.JSON(http.StatusInternalServerError, "Unable to assign tags to post")
 		log.Error("Unable to get post after tag assigning", err.Error())
 		return
 	}
@@ -170,14 +170,14 @@ func AssignTag(c *gin.Context) {
 	c.JSON(http.StatusOK, api.DONE)
 }
 
-func RemoveTag(c *gin.Context) {
+func RemoveTags(c *gin.Context) {
 	var dto PostTagConnectionDTO
 	if err := c.ShouldBindJSON(&dto); err != nil {
 		validation.SendError(c, err)
 		return
 	}
 
-	err := services.Instance().Posts().RemoveTagFromPost(dto.PostUuid, dto.TagId)
+	err := services.Instance().Posts().RemoveTagsFromPost(dto.PostUuid, dto.TagIds)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
@@ -188,7 +188,7 @@ func RemoveTag(c *gin.Context) {
 		return
 	}
 
-	log.Info(fmt.Sprintf("Removed tag from post. TagId: %v. Post UUID: %v", dto.TagId, dto.PostUuid))
+	log.Info(fmt.Sprintf("Removed tags from post. TagIds: %v. Post UUID: %v", dto.TagIds, dto.PostUuid))
 
 	post, err := services.Instance().Posts().GetPostWithTags(dto.PostUuid)
 	if err != nil {
