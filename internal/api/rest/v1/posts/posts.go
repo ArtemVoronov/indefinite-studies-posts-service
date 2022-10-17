@@ -189,7 +189,14 @@ func DeletePost(c *gin.Context) {
 		return
 	}
 
-	err := services.Instance().Posts().DeletePost(post.Uuid)
+	err := services.Instance().Posts().RemoveAllTagsFromPost(post.Uuid)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, "Unable to delete post")
+		log.Error("Unable to remove tags from posts", err.Error())
+		return
+	}
+
+	err = services.Instance().Posts().DeletePost(post.Uuid)
 
 	if err != nil {
 		if err == sql.ErrNoRows {

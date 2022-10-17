@@ -26,6 +26,8 @@ const (
 	ASSIGN_TAG_TO_POST_QUERY = `INSERT INTO posts_and_tags (post_id, tag_id) VALUES($1, $2)`
 
 	REMOVE_TAG_FROM_POST_QUERY = `DELETE FROM posts_and_tags WHERE post_id = $1 and tag_id = $2`
+
+	REMOVE_ALL_TAGS_FROM_POST_QUERY = `DELETE FROM posts_and_tags WHERE post_id = $1`
 )
 
 func GetTags(tx *sql.Tx, ctx context.Context, limit int, offset int) ([]entities.Tag, error) {
@@ -155,6 +157,25 @@ func RemoveTagFromPost(tx *sql.Tx, ctx context.Context, postId int, tagId int) e
 	affectedRowsCount, err := res.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("error at deleting from posts_and_tags (PostId: '%v', TagId: '%v'), case after counting affected rows: %v", postId, tagId, err)
+	}
+	if affectedRowsCount == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func RemoveAllTagsFromPost(tx *sql.Tx, ctx context.Context, postId int) error {
+	stmt, err := tx.PrepareContext(ctx, REMOVE_ALL_TAGS_FROM_POST_QUERY)
+	if err != nil {
+		return fmt.Errorf("error at deleting from posts_and_tags (PostId: '%v'), case after preparing statement: %v", postId, err)
+	}
+	res, err := stmt.ExecContext(ctx, postId)
+	if err != nil {
+		return fmt.Errorf("error at deleting from posts_and_tags (PostId: '%v'), case after executing statement: %v", postId, err)
+	}
+	affectedRowsCount, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error at deleting from posts_and_tags (PostId: '%v'), case after counting affected rows: %v", postId, err)
 	}
 	if affectedRowsCount == 0 {
 		return sql.ErrNoRows

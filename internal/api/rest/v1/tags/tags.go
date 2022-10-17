@@ -177,7 +177,7 @@ func RemoveTag(c *gin.Context) {
 		return
 	}
 
-	err := services.Instance().Posts().RemoveTagToPost(dto.PostUuid, dto.TagId)
+	err := services.Instance().Posts().RemoveTagFromPost(dto.PostUuid, dto.TagId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)

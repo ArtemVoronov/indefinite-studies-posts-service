@@ -379,12 +379,22 @@ func (s *PostsService) AssignTagToPost(postUuid string, tagId int) error {
 	})()
 }
 
-func (s *PostsService) RemoveTagToPost(postUuid string, tagId int) error {
+func (s *PostsService) RemoveTagFromPost(postUuid string, tagId int) error {
 	return s.client(postUuid).TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 		post, err := queries.GetPost(tx, ctx, postUuid)
 		if err != nil {
 			return err
 		}
 		return queries.RemoveTagFromPost(tx, ctx, post.Id, tagId)
+	})()
+}
+
+func (s *PostsService) RemoveAllTagsFromPost(postUuid string) error {
+	return s.client(postUuid).TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+		post, err := queries.GetPost(tx, ctx, postUuid)
+		if err != nil {
+			return err
+		}
+		return queries.RemoveAllTagsFromPost(tx, ctx, post.Id)
 	})()
 }
