@@ -11,6 +11,7 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api/validation"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/log"
+	utilsEntities "github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/db/entities"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/feed"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/utils"
 	"github.com/gin-gonic/gin"
@@ -140,7 +141,7 @@ func UpdatePost(c *gin.Context) {
 	}
 
 	if dto.State != nil {
-		if *dto.State == entities.POST_STATE_DELETED {
+		if *dto.State == utilsEntities.POST_STATE_DELETED {
 			c.JSON(http.StatusBadRequest, api.DELETE_VIA_PUT_REQUEST_IS_FODBIDDEN)
 			return
 		}
@@ -152,7 +153,7 @@ func UpdatePost(c *gin.Context) {
 		}
 	}
 
-	err := services.Instance().Posts().UpdatePost(dto.Uuid, dto.AuthorUuid, dto.Text, dto.PreviewText, dto.Topic, nil)
+	err := services.Instance().Posts().UpdatePost(dto.Uuid, dto.AuthorUuid, dto.Text, dto.PreviewText, dto.Topic, dto.State)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/entities"
+	utilsEntities "github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/db/entities"
 	"github.com/lib/pq"
 )
 
@@ -126,7 +127,7 @@ func GetPosts(tx *sql.Tx, ctx context.Context, limit int, offset int) ([]entitie
 		lastUpdateDate time.Time
 	)
 
-	rows, err := tx.QueryContext(ctx, GET_POSTS_QUERY, limit, offset, entities.POST_STATE_DELETED)
+	rows, err := tx.QueryContext(ctx, GET_POSTS_QUERY, limit, offset, utilsEntities.POST_STATE_DELETED)
 	if err != nil {
 		return posts, fmt.Errorf("error at loading posts, case after Query: %s", err)
 	}
@@ -162,7 +163,7 @@ func GetPostsWithTags(tx *sql.Tx, ctx context.Context, limit int, offset int) ([
 		tagsAggregated string
 	)
 
-	rows, err := tx.QueryContext(ctx, GET_POSTS_WITH_TAGS_QUERY, limit, offset, entities.POST_STATE_DELETED)
+	rows, err := tx.QueryContext(ctx, GET_POSTS_WITH_TAGS_QUERY, limit, offset, utilsEntities.POST_STATE_DELETED)
 	if err != nil {
 		return posts, fmt.Errorf("error at loading posts, case after Query: %s", err)
 	}
@@ -213,7 +214,7 @@ func GetPostsByIds(tx *sql.Tx, ctx context.Context, ids []int, limit int, offset
 		createDate     time.Time
 		lastUpdateDate time.Time
 	)
-	rows, err := tx.QueryContext(ctx, GET_POSTS_BY_IDS_QUERY, pq.Array(ids), limit, offset, entities.POST_STATE_DELETED)
+	rows, err := tx.QueryContext(ctx, GET_POSTS_BY_IDS_QUERY, pq.Array(ids), limit, offset, utilsEntities.POST_STATE_DELETED)
 	if err != nil {
 		return posts, fmt.Errorf("error at loading posts by ids, case after Query: %s", err)
 	}
@@ -237,7 +238,7 @@ func GetPostsByIds(tx *sql.Tx, ctx context.Context, ids []int, limit int, offset
 func GetPost(tx *sql.Tx, ctx context.Context, uuid string) (entities.Post, error) {
 	var post entities.Post
 
-	err := tx.QueryRowContext(ctx, GET_POST_QUERY_BY_UUID, uuid, entities.POST_STATE_DELETED).
+	err := tx.QueryRowContext(ctx, GET_POST_QUERY_BY_UUID, uuid, utilsEntities.POST_STATE_DELETED).
 		Scan(&post.Id, &post.Uuid, &post.AuthorUuid, &post.Text, &post.PreviewText, &post.Topic, &post.State, &post.CreateDate, &post.LastUpdateDate)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -254,7 +255,7 @@ func GetPostWithTags(tx *sql.Tx, ctx context.Context, uuid string) (entities.Pos
 	var post entities.PostWithTags
 	var tagsAggregated string
 
-	err := tx.QueryRowContext(ctx, GET_POST_WITH_TAGS_BY_UUID_QUERY, uuid, entities.POST_STATE_DELETED).
+	err := tx.QueryRowContext(ctx, GET_POST_WITH_TAGS_BY_UUID_QUERY, uuid, utilsEntities.POST_STATE_DELETED).
 		Scan(&post.Id, &post.Uuid, &post.AuthorUuid, &post.Text, &post.PreviewText, &post.Topic, &post.State, &post.CreateDate, &post.LastUpdateDate, &tagsAggregated)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -281,7 +282,7 @@ func CreatePost(tx *sql.Tx, ctx context.Context, params *CreatePostParams) (int,
 	lastUpdateDate := time.Now()
 
 	err := tx.QueryRowContext(ctx, CREATE_POST_QUERY,
-		params.Uuid, params.AuthorUuid, params.Text, params.PreviewText, params.Topic, entities.POST_STATE_NEW, createDate, lastUpdateDate).
+		params.Uuid, params.AuthorUuid, params.Text, params.PreviewText, params.Topic, utilsEntities.POST_STATE_NEW, createDate, lastUpdateDate).
 		Scan(&lastInsertId) // scan will release the connection
 	if err != nil {
 		return -1, fmt.Errorf("error at inserting post (Topic: '%v', AuthorUuid: '%v') into db, case after QueryRow.Scan: %s", params.Topic, params.AuthorUuid, err)
@@ -297,7 +298,7 @@ func UpdatePost(tx *sql.Tx, ctx context.Context, params *UpdatePostParams) error
 	if err != nil {
 		return fmt.Errorf("error at updating post, case after preparing statement: %s", err)
 	}
-	res, err := stmt.ExecContext(ctx, params.Uuid, params.AuthorUuid, params.Text, params.PreviewText, params.Topic, params.State, lastUpdateDate, entities.POST_STATE_DELETED)
+	res, err := stmt.ExecContext(ctx, params.Uuid, params.AuthorUuid, params.Text, params.PreviewText, params.Topic, params.State, lastUpdateDate, utilsEntities.POST_STATE_DELETED)
 	if err != nil {
 		return fmt.Errorf("error at updating post (Uuid: %v, AuthorUuid: '%v'), case after executing statement: %s", params.Uuid, params.AuthorUuid, err)
 	}
@@ -318,7 +319,7 @@ func DeletePost(tx *sql.Tx, ctx context.Context, uuid string) error {
 	if err != nil {
 		return fmt.Errorf("error at deleting post, case after preparing statement: %s", err)
 	}
-	res, err := stmt.ExecContext(ctx, uuid, entities.POST_STATE_DELETED)
+	res, err := stmt.ExecContext(ctx, uuid, utilsEntities.POST_STATE_DELETED)
 	if err != nil {
 		return fmt.Errorf("error at deleting post by Uuid '%v', case after executing statement: %s", uuid, err)
 	}
