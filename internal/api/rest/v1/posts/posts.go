@@ -106,14 +106,14 @@ func CreatePost(c *gin.Context) {
 
 	log.Info(fmt.Sprintf("Created post. Id: %v. Uuid: %v", postId, postUuid))
 
-	err = services.Instance().Posts().AssignTagToPost(postUuid, dto.TagId)
+	err = services.Instance().Posts().AssignTagsToPost(postUuid, dto.TagIds)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create post")
-		log.Error("Unable to assign tag to post", err.Error())
+		log.Error("Unable to assign tags to post", err.Error())
 		return
 	}
 
-	log.Info(fmt.Sprintf("Assigned tag to post. TagId: %v. Post UUID: %v", dto.TagId, postUuid))
+	log.Info(fmt.Sprintf("Assigned tags to post. TagIds: %v. Post UUID: %v", dto.TagIds, postUuid))
 
 	post, err := services.Instance().Posts().GetPostWithTags(postUuid)
 	if err != nil {
@@ -164,6 +164,22 @@ func UpdatePost(c *gin.Context) {
 	}
 
 	log.Info(fmt.Sprintf("Updated post: %v", dto))
+
+	if dto.TagIds != nil {
+		err = services.Instance().Posts().RemoveAllTagsFromPost(dto.Uuid)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, "Unable to update post")
+			log.Error("Unable to delete all tags from post: "+dto.Uuid, err.Error())
+			return
+		}
+		err = services.Instance().Posts().AssignTagsToPost(dto.Uuid, *dto.TagIds)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, "Unable to update post")
+			log.Error("Unable to assign tags to the post: "+dto.Uuid, err.Error())
+			return
+		}
+		log.Info(fmt.Sprintf("Assigned tags to post. TagIds: %v. Post UUID: %v", *dto.TagIds, dto.Uuid))
+	}
 
 	post, err := services.Instance().Posts().GetPostWithTags(dto.Uuid)
 	if err != nil {

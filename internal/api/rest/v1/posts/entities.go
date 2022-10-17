@@ -25,14 +25,15 @@ type PostEditDTO struct {
 	PreviewText *string `json:"PreviewText,omitempty"`
 	Topic       *string `json:"Topic,omitempty"`
 	State       *string `json:"State,omitempty"`
+	TagIds      *[]int  `json:"TagIds,omitempty"`
 }
 
 type PostCreateDTO struct {
 	AuthorUuid  string `json:"AuthorUuid" binding:"required"`
-	Text        string `json:"text" binding:"required"`
-	PreviewText string `json:"previewText" binding:"required"`
-	Topic       string `json:"topic" binding:"required"`
-	TagId       int    `json:"tagId" binding:"required"`
+	Text        string `json:"Text" binding:"required"`
+	PreviewText string `json:"PreviewText" binding:"required"`
+	Topic       string `json:"Topic" binding:"required"`
+	TagIds      []int  `json:"TagIds" binding:"required"`
 }
 
 type PostDeleteDTO struct {
