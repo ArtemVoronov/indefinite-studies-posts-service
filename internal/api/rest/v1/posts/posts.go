@@ -146,7 +146,7 @@ func UpdatePost(c *gin.Context) {
 			return
 		}
 
-		possibleStates := entities.GetPossiblePostStates()
+		possibleStates := utilsEntities.GetPossiblePostStates()
 		if !utils.Contains(possibleStates, *dto.State) {
 			c.JSON(http.StatusBadRequest, fmt.Sprintf("Unable to update post. Wrong 'State' value. Possible values: %v", possibleStates))
 			return
@@ -263,13 +263,6 @@ func convertPost(input entities.PostWithTags) PostDTO {
 		AuthorUuid:  input.AuthorUuid,
 		State:       input.State,
 		TagIds:      input.TagIds,
-	}
-}
-
-func convertTag(input entities.Tag) *feed.FeedTagDTO {
-	return &feed.FeedTagDTO{
-		Id:   input.Id,
-		Name: input.Name,
 	}
 }
 
