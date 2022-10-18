@@ -168,7 +168,7 @@ func UpdatePost(c *gin.Context) {
 
 	if dto.TagIds != nil {
 		err = services.Instance().Posts().RemoveAllTagsFromPost(dto.Uuid)
-		if err != nil {
+		if err != nil && err != sql.ErrNoRows {
 			c.JSON(http.StatusInternalServerError, "Unable to update post")
 			log.Error("Unable to delete all tags from post: "+dto.Uuid, err.Error())
 			return
@@ -207,7 +207,7 @@ func DeletePost(c *gin.Context) {
 	}
 
 	err := services.Instance().Posts().RemoveAllTagsFromPost(post.Uuid)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		c.JSON(http.StatusInternalServerError, "Unable to delete post")
 		log.Error("Unable to remove tags from posts", err.Error())
 		return
