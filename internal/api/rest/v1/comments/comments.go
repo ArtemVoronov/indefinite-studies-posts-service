@@ -12,6 +12,7 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api/validation"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/app"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/log"
+	utilsEntities "github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/db/entities"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/feed"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/utils"
 	"github.com/gin-gonic/gin"
@@ -117,12 +118,12 @@ func UpdateComment(c *gin.Context) {
 			log.Info(fmt.Sprintf("Forbidden to update comment state. Author UUID: %v", dto.AuthorUuid))
 			return
 		}
-		if *dto.State == entities.COMMENT_STATE_DELETED {
+		if *dto.State == utilsEntities.COMMENT_STATE_DELETED {
 			c.JSON(http.StatusBadRequest, api.DELETE_VIA_PUT_REQUEST_IS_FODBIDDEN)
 			return
 		}
 
-		possibleStates := entities.GetPossibleCommentStates()
+		possibleStates := utilsEntities.GetPossibleCommentStates()
 		if !utils.Contains(possibleStates, *dto.State) {
 			c.JSON(http.StatusBadRequest, fmt.Sprintf("Unable to update comment. Wrong 'State' value. Possible values: %v", possibleStates))
 			return
