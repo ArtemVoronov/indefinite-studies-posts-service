@@ -9,7 +9,7 @@ services:
     volumes:
       - ./scripts/docker-postgresql-multiple-databases:/docker-entrypoint-initdb.d
       - database-volume:/var/lib/postgresql/data
-    
+
   api:
     build: .
     deploy:
@@ -24,75 +24,79 @@ services:
       - liquibase_shard_3
       - liquibase_shard_4
       - postgres
-  
+
   liquibase_shard_1:
     image: liquibase/liquibase
     volumes:
       - ./docker/liquibase/migrations:/liquibase/changelog
-    command: [
+    command:
+      [
         "liquibase",
         "--username=${DATABASE_USER}",
         "--password=${DATABASE_PASSWORD}",
         "--changeLogFile=changelog/db.changelog-root.xml",
         "--url=${DATABASE_URL}_1",
         "update"
-    ]
+      ]
     depends_on:
       - postgres
-  
+
   liquibase_shard_2:
     image: liquibase/liquibase
     volumes:
       - ./docker/liquibase/migrations:/liquibase/changelog
-    command: [
+    command:
+      [
         "liquibase",
         "--username=${DATABASE_USER}",
         "--password=${DATABASE_PASSWORD}",
         "--changeLogFile=changelog/db.changelog-root.xml",
         "--url=${DATABASE_URL}_2",
         "update"
-    ]
+      ]
     depends_on:
       - postgres
-  
+
   liquibase_shard_3:
     image: liquibase/liquibase
     volumes:
       - ./docker/liquibase/migrations:/liquibase/changelog
-    command: [
+    command:
+      [
         "liquibase",
         "--username=${DATABASE_USER}",
         "--password=${DATABASE_PASSWORD}",
         "--changeLogFile=changelog/db.changelog-root.xml",
         "--url=${DATABASE_URL}_3",
         "update"
-    ]
+      ]
     depends_on:
       - postgres
-  
+
   liquibase_shard_4:
     image: liquibase/liquibase
     volumes:
       - ./docker/liquibase/migrations:/liquibase/changelog
-    command: [
+    command:
+      [
         "liquibase",
         "--username=${DATABASE_USER}",
         "--password=${DATABASE_PASSWORD}",
         "--changeLogFile=changelog/db.changelog-root.xml",
         "--url=${DATABASE_URL}_4",
         "update"
-    ]
+      ]
     depends_on:
       - postgres
-  
+
   nginx:
     image: nginx
     volumes:
-    - ./configs/templates/nginx:/etc/nginx/templates
+      - ./configs/templates/nginx:/etc/nginx/templates
     ports:
-    - "10004:80"
+      - "10004:80"
     environment:
-    - HOST_API=${HOST_API}
+      - HOST_API=${HOST_API}
     depends_on:
       - api
 
