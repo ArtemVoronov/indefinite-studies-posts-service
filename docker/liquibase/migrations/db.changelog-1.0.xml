@@ -70,7 +70,8 @@
             <column name="text" type="text">
                 <constraints nullable="false"/>
             </column>
-            <column name="linked_comment_uuid" type="uuid">
+            <!-- TODO: fix uuid type and nillable value at backend -->
+            <column name="linked_comment_uuid" type="varchar(36)">
             </column>
             <column name="state" type="varchar(256)">
                 <constraints nullable="false"/>
