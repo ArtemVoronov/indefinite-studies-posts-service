@@ -128,6 +128,7 @@ func UpdateComment(tx *sql.Tx, ctx context.Context, params *UpdateCommentParams)
 	if err != nil {
 		return fmt.Errorf("error at updating comment, case after preparing statement: %s", err)
 	}
+	defer stmt.Close()
 	res, err := stmt.ExecContext(ctx, params.Id, params.Text, params.State, lastUpdateDate, utilsEntities.COMMENT_STATE_DELETED)
 	if err != nil {
 		return fmt.Errorf("error at updating comment (Id: %v, AuthorUuid: '%v', PostId: '%v'), case after executing statement: %s", params.Id, params.AuthorUuid, params.PostId, err)
@@ -149,6 +150,7 @@ func DeleteComment(tx *sql.Tx, ctx context.Context, id int) error {
 	if err != nil {
 		return fmt.Errorf("error at deleting comment, case after preparing statement: %s", err)
 	}
+	defer stmt.Close()
 	res, err := stmt.ExecContext(ctx, id, utilsEntities.COMMENT_STATE_DELETED)
 	if err != nil {
 		return fmt.Errorf("error at deleting comment by id '%d', case after executing statement: %s", id, err)

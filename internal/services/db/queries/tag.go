@@ -93,6 +93,7 @@ func UpdateTag(tx *sql.Tx, ctx context.Context, id int, newName string) error {
 	if err != nil {
 		return fmt.Errorf("error at updating tag, case after preparing statement: %s", err)
 	}
+	defer stmt.Close()
 	res, err := stmt.ExecContext(ctx, id, newName)
 	if err != nil {
 		if err.Error() == ErrorTagDuplicateKey.Error() {
@@ -117,6 +118,7 @@ func DeleteTag(tx *sql.Tx, ctx context.Context, id int) error {
 	if err != nil {
 		return fmt.Errorf("error at deleting tag, case after preparing statement: %v", err)
 	}
+	defer stmt.Close()
 	res, err := stmt.ExecContext(ctx, id)
 	if err != nil {
 		return fmt.Errorf("error at deleting tag by id '%v', case after executing statement: %v", id, err)
@@ -136,6 +138,7 @@ func AssignTagToPost(tx *sql.Tx, ctx context.Context, postId int, tagId int) err
 	if err != nil {
 		return fmt.Errorf("error at inserting to posts_and_tags (PostId: '%v', TagId: '%v'), case after preparing statement: %s", postId, tagId, err)
 	}
+	defer stmt.Close()
 
 	_, err = stmt.ExecContext(ctx, postId, tagId)
 	if err != nil {
@@ -150,6 +153,7 @@ func RemoveTagFromPost(tx *sql.Tx, ctx context.Context, postId int, tagId int) e
 	if err != nil {
 		return fmt.Errorf("error at deleting from posts_and_tags (PostId: '%v', TagId: '%v'), case after preparing statement: %v", postId, tagId, err)
 	}
+	defer stmt.Close()
 	res, err := stmt.ExecContext(ctx, postId, tagId)
 	if err != nil {
 		return fmt.Errorf("error at deleting from posts_and_tags (PostId: '%v', TagId: '%v'), case after executing statement: %v", postId, tagId, err)
@@ -169,6 +173,7 @@ func RemoveAllTagsFromPost(tx *sql.Tx, ctx context.Context, postId int) error {
 	if err != nil {
 		return fmt.Errorf("error at deleting from posts_and_tags (PostId: '%v'), case after preparing statement: %v", postId, err)
 	}
+	defer stmt.Close()
 	res, err := stmt.ExecContext(ctx, postId)
 	if err != nil {
 		return fmt.Errorf("error at deleting from posts_and_tags (PostId: '%v'), case after executing statement: %v", postId, err)

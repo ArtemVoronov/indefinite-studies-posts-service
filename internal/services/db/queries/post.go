@@ -298,6 +298,7 @@ func UpdatePost(tx *sql.Tx, ctx context.Context, params *UpdatePostParams) error
 	if err != nil {
 		return fmt.Errorf("error at updating post, case after preparing statement: %s", err)
 	}
+	defer stmt.Close()
 	res, err := stmt.ExecContext(ctx, params.Uuid, params.AuthorUuid, params.Text, params.PreviewText, params.Topic, params.State, lastUpdateDate, utilsEntities.POST_STATE_DELETED)
 	if err != nil {
 		return fmt.Errorf("error at updating post (Uuid: %v, AuthorUuid: '%v'), case after executing statement: %s", params.Uuid, params.AuthorUuid, err)
@@ -319,6 +320,7 @@ func DeletePost(tx *sql.Tx, ctx context.Context, uuid string) error {
 	if err != nil {
 		return fmt.Errorf("error at deleting post, case after preparing statement: %s", err)
 	}
+	defer stmt.Close()
 	res, err := stmt.ExecContext(ctx, uuid, utilsEntities.POST_STATE_DELETED)
 	if err != nil {
 		return fmt.Errorf("error at deleting post by Uuid '%v', case after executing statement: %s", uuid, err)
