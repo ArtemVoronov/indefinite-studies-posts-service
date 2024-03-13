@@ -126,6 +126,28 @@ func GetPost(c *gin.Context) {
 	c.JSON(http.StatusOK, convertPost(post))
 }
 
+func GetPostPreview(c *gin.Context) {
+	postUuid := c.Param("uuid")
+
+	if postUuid == "" {
+		c.JSON(http.StatusBadRequest, "Missed 'uuid' param")
+		return
+	}
+
+	post, err := services.Instance().Posts().GetPostWithTags(postUuid)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
+		} else {
+			c.JSON(http.StatusInternalServerError, "Unable to get post preview")
+			log.Error("Unable to get post preview", err.Error())
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, convertPostPreview(post))
+}
+
 func CreatePost(c *gin.Context) {
 	var dto PostCreateDTO
 
