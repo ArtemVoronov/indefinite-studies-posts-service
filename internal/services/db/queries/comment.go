@@ -27,6 +27,8 @@ type UpdateCommentParams struct {
 	State             interface{}
 }
 
+// TODO: add memory safe pagination without direct offset, use sorting by id and where criteria
+
 const (
 	GET_COMMENTS_QUERY = `SELECT 
 		id, uuid, author_uuid, text, linked_comment_uuid, state, create_date, last_update_date 

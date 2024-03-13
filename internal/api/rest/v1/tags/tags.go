@@ -2,11 +2,11 @@ package tags
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
 
-	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/api/rest/v1/posts"
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services"
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/entities"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api"
@@ -14,6 +14,9 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/log"
 	"github.com/gin-gonic/gin"
 )
+
+const AssignedTagsToPostsTopic = "assigned_tags_to_posts"
+const DeletededTagsToPostsTopic = "deleted_tags_to_posts"
 
 func GetTags(c *gin.Context) {
 	limitStr := c.DefaultQuery("limit", "50")
@@ -91,13 +94,6 @@ func CreateTag(c *gin.Context) {
 		return
 	}
 
-	err = services.Instance().Feed().UpdateTag(posts.ToFeedTagDTO(tagId, dto.Name))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, "Unable to update tag")
-		log.Error("Unable to update tag at feed service", err.Error())
-		return
-	}
-
 	log.Info(fmt.Sprintf("Created tag. Id: %v", tagId))
 
 	c.JSON(http.StatusCreated, tagId)
@@ -118,13 +114,6 @@ func UpdateTag(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, "Unable to update tag")
 			log.Error("Unable to update tag", err.Error())
 		}
-		return
-	}
-
-	err = services.Instance().Feed().UpdateTag(posts.ToFeedTagDTO(dto.Id, dto.Name))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, "Unable to update tag")
-		log.Error("Unable to update tag at feed service", err.Error())
 		return
 	}
 
@@ -153,18 +142,17 @@ func AssignTags(c *gin.Context) {
 
 	log.Info(fmt.Sprintf("Assigned tags to post. TagIds: %v. Post UUID: %v", dto.TagIds, dto.PostUuid))
 
-	post, err := services.Instance().Posts().GetPostWithTags(dto.PostUuid)
+	postJSON, err := json.Marshal(dto)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to assign tags to post")
-		log.Error("Unable to get post after tag assigning", err.Error())
+		log.Error(fmt.Sprintf("Unable to convert post with uuid %v to JSON", dto.PostUuid), err.Error())
 		return
 	}
 
-	err = services.Instance().Feed().UpdatePost(posts.ToFeedPostDTO(&post))
+	err = services.Instance().KafkaProducer().CreateMessage(AssignedTagsToPostsTopic, string(postJSON))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, "Unable to assign tag to post")
-		log.Error("Unable to update post at feed service after tag assigning", err.Error())
-		return
+		// TODO: create some daemon that catch unpublished posts
+		log.Error(fmt.Sprintf("Unable to put post uuid %v into queue %v", dto.PostUuid, AssignedTagsToPostsTopic), err.Error())
 	}
 
 	c.JSON(http.StatusOK, api.DONE)
@@ -190,18 +178,17 @@ func RemoveTags(c *gin.Context) {
 
 	log.Info(fmt.Sprintf("Removed tags from post. TagIds: %v. Post UUID: %v", dto.TagIds, dto.PostUuid))
 
-	post, err := services.Instance().Posts().GetPostWithTags(dto.PostUuid)
+	postJSON, err := json.Marshal(dto)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to remove tag from post")
-		log.Error("Unable to get post after tag removing", err.Error())
+		log.Error(fmt.Sprintf("Unable to convert post with uuid %v to JSON", dto.PostUuid), err.Error())
 		return
 	}
 
-	err = services.Instance().Feed().UpdatePost(posts.ToFeedPostDTO(&post))
+	err = services.Instance().KafkaProducer().CreateMessage(DeletededTagsToPostsTopic, string(postJSON))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, "Unable to remove tag from post")
-		log.Error("Unable to update post at feed service after tag removing", err.Error())
-		return
+		// TODO: create some daemon that catch unpublished posts
+		log.Error(fmt.Sprintf("Unable to put post uuid %v into queue %v", dto.PostUuid, DeletededTagsToPostsTopic), err.Error())
 	}
 
 	c.JSON(http.StatusOK, api.DONE)

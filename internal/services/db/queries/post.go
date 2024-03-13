@@ -32,6 +32,8 @@ type UpdatePostParams struct {
 	State       interface{}
 }
 
+// TODO: add memory safe pagination without direct offset, use sorting by id and where criteria
+
 const (
 	GET_POSTS_QUERY = `SELECT 
 		id, uuid, author_uuid, text, preview_text, topic, state, create_date, last_update_date 

@@ -63,6 +63,8 @@ func createRestApi(logger *logrus.Logger) *gin.Engine {
 	v1.GET("/posts/tags", tagsRestApi.GetTags)
 	v1.GET("/posts/tags/:id", tagsRestApi.GetTag)
 
+	// TODO: add getting previews instead of full text post
+
 	authorized := router.Group("/api/v1")
 	authorized.Use(app.AuthReqired(authenicate))
 	{

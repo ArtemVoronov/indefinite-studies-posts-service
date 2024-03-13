@@ -10,16 +10,16 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/log"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/auth"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/db"
-	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/feed"
+	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/kafka"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/shard"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/utils"
 )
 
 type Services struct {
-	auth  *auth.AuthGRPCService
-	feed  *feed.FeedBuilderGRPCService
-	db    *db.PostgreSQLService
-	posts *posts.PostsService
+	auth          *auth.AuthGRPCService
+	db            *db.PostgreSQLService
+	posts         *posts.PostsService
+	kafkaProducer *kafka.KafkaProducerService
 }
 
 var once sync.Once
@@ -39,9 +39,9 @@ func createServices() *Services {
 	if err != nil {
 		log.Fatalf("unable to load TLS credentials: %s", err)
 	}
-	feedcreds, err := app.LoadTLSCredentialsForClient(utils.EnvVar("FEED_SERVICE_CLIENT_TLS_CERT_PATH"))
+	kafkaProducer, err := kafka.CreateKafkaProducerService(utils.EnvVar("KAFKA_HOST") + ":" + utils.EnvVar("KAFKA_PORT"))
 	if err != nil {
-		log.Fatalf("unable to load TLS credentials: %s", err)
+		log.Fatalf("unable to create kafka producer: %s", err)
 	}
 
 	dbClients := []*db.PostgreSQLService{}
@@ -58,19 +58,19 @@ func createServices() *Services {
 	}
 
 	return &Services{
-		auth:  auth.CreateAuthGRPCService(utils.EnvVar("AUTH_SERVICE_GRPC_HOST")+":"+utils.EnvVar("AUTH_SERVICE_GRPC_PORT"), &authcreds),
-		feed:  feed.CreateFeedBuilderGRPCService(utils.EnvVar("FEED_SERVICE_GRPC_HOST")+":"+utils.EnvVar("FEED_SERVICE_GRPC_PORT"), &feedcreds),
-		posts: posts.CreatePostsService(dbClients),
+		auth:          auth.CreateAuthGRPCService(utils.EnvVar("AUTH_SERVICE_GRPC_HOST")+":"+utils.EnvVar("AUTH_SERVICE_GRPC_PORT"), &authcreds),
+		kafkaProducer: kafkaProducer,
+		posts:         posts.CreatePostsService(dbClients),
 	}
 }
 
 func (s *Services) Shutdown() error {
 	result := []error{}
-	err := s.feed.Shutdown()
+	err := s.auth.Shutdown()
 	if err != nil {
 		result = append(result, err)
 	}
-	err = s.auth.Shutdown()
+	err = s.kafkaProducer.Shutdown()
 	if err != nil {
 		result = append(result, err)
 	}
@@ -92,8 +92,8 @@ func (s *Services) Auth() *auth.AuthGRPCService {
 	return s.auth
 }
 
-func (s *Services) Feed() *feed.FeedBuilderGRPCService {
-	return s.feed
+func (s *Services) KafkaProducer() *kafka.KafkaProducerService {
+	return s.kafkaProducer
 }
 
 func (s *Services) Posts() *posts.PostsService {

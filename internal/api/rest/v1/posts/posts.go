@@ -2,6 +2,7 @@ package posts
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -12,11 +13,14 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api/validation"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/log"
 	utilsEntities "github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/db/entities"
-	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/feed"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
+
+const NewPostsTopic = "new_posts"
+const UpdatedPostsTopic = "updated_posts"
+const DeletedPostsTopic = "deleted_posts"
 
 func GetPosts(c *gin.Context) {
 	limitStr := c.DefaultQuery("limit", "50")
@@ -50,6 +54,47 @@ func GetPosts(c *gin.Context) {
 
 	result := &PostListDTO{
 		Data:        convertPosts(list),
+		Count:       len(list),
+		Offset:      offset,
+		Limit:       limit,
+		ShardsCount: services.Instance().Posts().ShardsNum,
+	}
+
+	c.JSON(http.StatusOK, result)
+}
+
+func GetPostPreviews(c *gin.Context) {
+	limitStr := c.DefaultQuery("limit", "50")
+	offsetStr := c.DefaultQuery("offset", "0")
+	shardStr := c.Query("shard")
+
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil {
+		limit = 50
+	}
+
+	offset, err := strconv.Atoi(offsetStr)
+	if err != nil {
+		offset = 0
+	}
+
+	shard, err := strconv.Atoi(shardStr)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, "Missed 'shard' parameter or wrong value")
+		log.Error(fmt.Sprintf("Missed 'shard' parameter or wrong value: %v", shardStr), err.Error())
+		return
+	}
+
+	list, err := services.Instance().Posts().GetPostsWithTags(offset, limit, shard)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, "Unable to get posts")
+		log.Error("Unable to get posts", err.Error())
+		return
+	}
+
+	result := &PostListDTO{
+		Data:        convertPostsPreview(list),
 		Count:       len(list),
 		Offset:      offset,
 		Limit:       limit,
@@ -123,11 +168,17 @@ func CreatePost(c *gin.Context) {
 		return
 	}
 
-	err = services.Instance().Feed().CreatePost(ToFeedPostDTO(&post))
+	postJSON, err := json.Marshal(post)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create post")
-		log.Error("Unable to create post at feed service", err.Error())
+		log.Error(fmt.Sprintf("Unable to convert post with uuid %v to JSON", post.Post.Uuid), err.Error())
 		return
+	}
+
+	err = services.Instance().KafkaProducer().CreateMessage(NewPostsTopic, string(postJSON))
+	if err != nil {
+		// TODO: create some daemon that catch unpublished posts
+		log.Error(fmt.Sprintf("Unable to put post uuid %v into queue %v", post.Post.Uuid, NewPostsTopic), err.Error())
 	}
 
 	c.JSON(http.StatusCreated, postUuid)
@@ -185,15 +236,22 @@ func UpdatePost(c *gin.Context) {
 	post, err := services.Instance().Posts().GetPostWithTags(dto.Uuid)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to update post")
-		log.Error("Unable to get post after updating", err.Error())
+		log.Error("Unable to get post after updating "+dto.Uuid, err.Error())
 		return
 	}
 
-	err = services.Instance().Feed().UpdatePost(ToFeedPostDTO(&post))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, "Unable to update post")
-		log.Error("Unable to update post at feed service", err.Error())
-		return
+	if dto.TagIds != nil {
+		postJSON, err := json.Marshal(post)
+		if err != nil {
+			// TODO: create some daemon that catch unpublished posts
+			log.Error(fmt.Sprintf("Unable to convert post with uuid %v to JSON", post.Post.Uuid), err.Error())
+		}
+
+		err = services.Instance().KafkaProducer().CreateMessage(UpdatedPostsTopic, string(postJSON))
+		if err != nil {
+			// TODO: create some daemon that catch unpublished posts
+			log.Error(fmt.Sprintf("Unable to put post uuid %v into queue %v", post.Post.Uuid, UpdatedPostsTopic), err.Error())
+		}
 	}
 
 	c.JSON(http.StatusOK, api.DONE)
@@ -214,15 +272,8 @@ func DeletePost(c *gin.Context) {
 	}
 
 	err = services.Instance().Posts().DeletePost(post.Uuid)
-
 	if err != nil {
 		if err == sql.ErrNoRows {
-			errFeed := services.Instance().Feed().DeletePost(post.Uuid)
-			if errFeed != nil {
-				c.JSON(http.StatusInternalServerError, "Unable to delete post")
-				log.Error("Unable to delete post at feed service", errFeed.Error())
-				return
-			}
 			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
 		} else {
 			c.JSON(http.StatusInternalServerError, "Unable to delete post")
@@ -231,11 +282,10 @@ func DeletePost(c *gin.Context) {
 		return
 	}
 
-	err = services.Instance().Feed().DeletePost(post.Uuid)
+	err = services.Instance().KafkaProducer().CreateMessage(DeletedPostsTopic, post.Uuid)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, "Unable to delete post")
-		log.Error("Unable to delete post at feed service", err.Error())
-		return
+		// TODO: create some daemon that catch unpublished posts
+		log.Error(fmt.Sprintf("Unable to put post uuid %v into queue %v", post.Uuid, DeletedPostsTopic), err.Error())
 	}
 
 	log.Info(fmt.Sprintf("Deleted post. Uuid: %v", post.Uuid))
@@ -254,6 +304,17 @@ func convertPosts(input []entities.PostWithTags) []PostDTO {
 	return result
 }
 
+func convertPostsPreview(input []entities.PostWithTags) []PostDTO {
+	if input == nil {
+		return make([]PostDTO, 0)
+	}
+	var result []PostDTO
+	for _, p := range input {
+		result = append(result, convertPostPreview(p))
+	}
+	return result
+}
+
 func convertPost(input entities.PostWithTags) PostDTO {
 	return PostDTO{
 		Uuid:        input.Uuid,
@@ -266,23 +327,14 @@ func convertPost(input entities.PostWithTags) PostDTO {
 	}
 }
 
-func ToFeedPostDTO(post *entities.PostWithTags) *feed.FeedPostDTO {
-	return &feed.FeedPostDTO{
-		Uuid:           post.Uuid,
-		AuthorUuid:     post.AuthorUuid,
-		Text:           post.Text,
-		PreviewText:    post.PreviewText,
-		Topic:          post.Topic,
-		State:          post.State,
-		CreateDate:     post.CreateDate,
-		LastUpdateDate: post.LastUpdateDate,
-		TagIds:         post.TagIds,
-	}
-}
-
-func ToFeedTagDTO(tagId int, name string) *feed.FeedTagDTO {
-	return &feed.FeedTagDTO{
-		Id:   tagId,
-		Name: name,
+func convertPostPreview(input entities.PostWithTags) PostDTO {
+	return PostDTO{
+		Uuid:        input.Uuid,
+		Text:        "",
+		PreviewText: input.PreviewText,
+		Topic:       input.Topic,
+		AuthorUuid:  input.AuthorUuid,
+		State:       input.State,
+		TagIds:      input.TagIds,
 	}
 }

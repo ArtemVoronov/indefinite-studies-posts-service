@@ -10,6 +10,8 @@ type PostDTO struct {
 	TagIds      []int
 }
 
+// TODO: need to add additional service and remove paramter ShardsCount, UI should not know about shards at all
+
 type PostListDTO struct {
 	Count       int
 	Offset      int
