@@ -190,7 +190,7 @@ func CreatePost(c *gin.Context) {
 		return
 	}
 
-	postJSON, err := json.Marshal(post)
+	postJSON, err := json.Marshal(entities.PostWithTagsForQueue{PostUuid: post.Uuid, TagIds: post.TagIds})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create post")
 		log.Error(fmt.Sprintf("Unable to convert post with uuid %v to JSON", post.Post.Uuid), err.Error())
@@ -263,7 +263,7 @@ func UpdatePost(c *gin.Context) {
 	}
 
 	if dto.TagIds != nil {
-		postJSON, err := json.Marshal(post)
+		postJSON, err := json.Marshal(entities.PostWithTagsForQueue{PostUuid: post.Uuid, TagIds: post.TagIds})
 		if err != nil {
 			// TODO: create some daemon that catch unpublished posts
 			log.Error(fmt.Sprintf("Unable to convert post with uuid %v to JSON", post.Post.Uuid), err.Error())

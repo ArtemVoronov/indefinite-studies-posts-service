@@ -20,3 +20,8 @@ type PostWithTags struct {
 	Post
 	TagIds []int
 }
+
+type PostWithTagsForQueue struct {
+	PostUuid string
+	TagIds   []int
+}

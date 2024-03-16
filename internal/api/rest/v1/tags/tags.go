@@ -142,7 +142,7 @@ func AssignTags(c *gin.Context) {
 
 	log.Info(fmt.Sprintf("Assigned tags to post. TagIds: %v. Post UUID: %v", dto.TagIds, dto.PostUuid))
 
-	postJSON, err := json.Marshal(dto)
+	postJSON, err := json.Marshal(entities.PostWithTagsForQueue{PostUuid: dto.PostUuid, TagIds: dto.TagIds})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to assign tags to post")
 		log.Error(fmt.Sprintf("Unable to convert post with uuid %v to JSON", dto.PostUuid), err.Error())
@@ -178,7 +178,7 @@ func RemoveTags(c *gin.Context) {
 
 	log.Info(fmt.Sprintf("Removed tags from post. TagIds: %v. Post UUID: %v", dto.TagIds, dto.PostUuid))
 
-	postJSON, err := json.Marshal(dto)
+	postJSON, err := json.Marshal(entities.PostWithTagsForQueue{PostUuid: dto.PostUuid, TagIds: dto.TagIds})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to remove tag from post")
 		log.Error(fmt.Sprintf("Unable to convert post with uuid %v to JSON", dto.PostUuid), err.Error())
