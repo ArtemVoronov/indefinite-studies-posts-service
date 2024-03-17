@@ -18,7 +18,15 @@ type Post struct {
 
 type PostWithTags struct {
 	Post
-	TagIds []int
+	Tags map[int]string
+}
+
+func (post PostWithTags) TagIds() []int {
+	result := make([]int, 0, len(post.Tags))
+	for k := range post.Tags {
+		result = append(result, k)
+	}
+	return result
 }
 
 type PostWithTagsForQueue struct {

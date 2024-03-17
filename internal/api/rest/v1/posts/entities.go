@@ -7,7 +7,7 @@ type PostDTO struct {
 	PreviewText string
 	Topic       string
 	State       string
-	TagIds      []int
+	Tags        map[int]string
 }
 
 // TODO: need to add additional service and remove paramter ShardsCount, UI should not know about shards at all

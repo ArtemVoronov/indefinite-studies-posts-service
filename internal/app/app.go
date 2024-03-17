@@ -57,13 +57,11 @@ func createRestApi(logger *logrus.Logger) *gin.Engine {
 	v1 := router.Group("/api/v1")
 
 	v1.GET("/posts/ping", ping.Ping)
-	v1.GET("/posts", postsRestApi.GetPosts)
 	v1.GET("/posts/:uuid", postsRestApi.GetPost)
 	v1.GET("/posts/:uuid/comments", commentsRestApi.GetComments)
 	v1.GET("/posts/tags", tagsRestApi.GetTags)
 	v1.GET("/posts/tags/:id", tagsRestApi.GetTag)
 
-	v1.GET("/posts/preview", postsRestApi.GetPostPreviews)
 	v1.GET("/posts/preview/:uuid", postsRestApi.GetPostPreview)
 
 	authorized := router.Group("/api/v1")

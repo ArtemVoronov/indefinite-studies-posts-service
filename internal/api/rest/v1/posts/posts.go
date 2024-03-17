@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services"
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/entities"
@@ -21,88 +20,6 @@ import (
 const NewPostsTopic = "new_posts"
 const UpdatedPostsTopic = "updated_posts"
 const DeletedPostsTopic = "deleted_posts"
-
-func GetPosts(c *gin.Context) {
-	limitStr := c.DefaultQuery("limit", "50")
-	offsetStr := c.DefaultQuery("offset", "0")
-	shardStr := c.Query("shard")
-
-	limit, err := strconv.Atoi(limitStr)
-	if err != nil {
-		limit = 50
-	}
-
-	offset, err := strconv.Atoi(offsetStr)
-	if err != nil {
-		offset = 0
-	}
-
-	shard, err := strconv.Atoi(shardStr)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, "Missed 'shard' parameter or wrong value")
-		log.Error(fmt.Sprintf("Missed 'shard' parameter or wrong value: %v", shardStr), err.Error())
-		return
-	}
-
-	list, err := services.Instance().Posts().GetPostsWithTags(offset, limit, shard)
-
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, "Unable to get posts")
-		log.Error("Unable to get posts", err.Error())
-		return
-	}
-
-	result := &PostListDTO{
-		Data:        convertPosts(list),
-		Count:       len(list),
-		Offset:      offset,
-		Limit:       limit,
-		ShardsCount: services.Instance().Posts().ShardsNum,
-	}
-
-	c.JSON(http.StatusOK, result)
-}
-
-func GetPostPreviews(c *gin.Context) {
-	limitStr := c.DefaultQuery("limit", "50")
-	offsetStr := c.DefaultQuery("offset", "0")
-	shardStr := c.Query("shard")
-
-	limit, err := strconv.Atoi(limitStr)
-	if err != nil {
-		limit = 50
-	}
-
-	offset, err := strconv.Atoi(offsetStr)
-	if err != nil {
-		offset = 0
-	}
-
-	shard, err := strconv.Atoi(shardStr)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, "Missed 'shard' parameter or wrong value")
-		log.Error(fmt.Sprintf("Missed 'shard' parameter or wrong value: %v", shardStr), err.Error())
-		return
-	}
-
-	list, err := services.Instance().Posts().GetPostsWithTags(offset, limit, shard)
-
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, "Unable to get posts")
-		log.Error("Unable to get posts", err.Error())
-		return
-	}
-
-	result := &PostListDTO{
-		Data:        convertPostsPreview(list),
-		Count:       len(list),
-		Offset:      offset,
-		Limit:       limit,
-		ShardsCount: services.Instance().Posts().ShardsNum,
-	}
-
-	c.JSON(http.StatusOK, result)
-}
 
 func GetPost(c *gin.Context) {
 	postUuid := c.Param("uuid")
@@ -190,7 +107,7 @@ func CreatePost(c *gin.Context) {
 		return
 	}
 
-	postJSON, err := json.Marshal(entities.PostWithTagsForQueue{PostUuid: post.Uuid, TagIds: post.TagIds})
+	postJSON, err := json.Marshal(entities.PostWithTagsForQueue{PostUuid: post.Uuid, TagIds: post.TagIds()})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create post")
 		log.Error(fmt.Sprintf("Unable to convert post with uuid %v to JSON", post.Post.Uuid), err.Error())
@@ -263,7 +180,7 @@ func UpdatePost(c *gin.Context) {
 	}
 
 	if dto.TagIds != nil {
-		postJSON, err := json.Marshal(entities.PostWithTagsForQueue{PostUuid: post.Uuid, TagIds: post.TagIds})
+		postJSON, err := json.Marshal(entities.PostWithTagsForQueue{PostUuid: post.Uuid, TagIds: post.TagIds()})
 		if err != nil {
 			// TODO: create some daemon that catch unpublished posts
 			log.Error(fmt.Sprintf("Unable to convert post with uuid %v to JSON", post.Post.Uuid), err.Error())
@@ -315,28 +232,6 @@ func DeletePost(c *gin.Context) {
 	c.JSON(http.StatusOK, api.DONE)
 }
 
-func convertPosts(input []entities.PostWithTags) []PostDTO {
-	if input == nil {
-		return make([]PostDTO, 0)
-	}
-	var result []PostDTO
-	for _, p := range input {
-		result = append(result, convertPost(p))
-	}
-	return result
-}
-
-func convertPostsPreview(input []entities.PostWithTags) []PostDTO {
-	if input == nil {
-		return make([]PostDTO, 0)
-	}
-	var result []PostDTO
-	for _, p := range input {
-		result = append(result, convertPostPreview(p))
-	}
-	return result
-}
-
 func convertPost(input entities.PostWithTags) PostDTO {
 	return PostDTO{
 		Uuid:        input.Uuid,
@@ -345,7 +240,7 @@ func convertPost(input entities.PostWithTags) PostDTO {
 		Topic:       input.Topic,
 		AuthorUuid:  input.AuthorUuid,
 		State:       input.State,
-		TagIds:      input.TagIds,
+		Tags:        input.Tags,
 	}
 }
 
@@ -357,6 +252,6 @@ func convertPostPreview(input entities.PostWithTags) PostDTO {
 		Topic:       input.Topic,
 		AuthorUuid:  input.AuthorUuid,
 		State:       input.State,
-		TagIds:      input.TagIds,
+		Tags:        input.Tags,
 	}
 }

@@ -14,6 +14,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+// TODO: remove unused posts calls
 type PostsServiceServer struct {
 	posts.UnimplementedPostsServiceServer
 }
@@ -35,28 +36,7 @@ func (s *PostsServiceServer) GetPost(ctx context.Context, in *posts.GetPostReque
 }
 
 func (s *PostsServiceServer) GetPosts(ctx context.Context, in *posts.GetPostsRequest) (*posts.GetPostsReply, error) {
-	var postsList []entities.PostWithTags
-	var err error
-
-	postsList, err = services.Instance().Posts().GetPostsWithTags(int(in.GetOffset()), int(in.GetLimit()), int(in.GetShard()))
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf(api.PAGE_NOT_FOUND)
-		} else {
-			return nil, err
-		}
-	}
-
-	result := &posts.GetPostsReply{
-		Offset:      in.Offset,
-		Limit:       in.Limit,
-		Count:       int32(len(postsList)),
-		Posts:       toGetPostReplies(postsList),
-		ShardsCount: int32(services.Instance().Posts().ShardsNum),
-	}
-
-	return result, nil
+	return nil, fmt.Errorf("NOT IMPLEMENTED")
 }
 
 func (s *PostsServiceServer) GetPostsStream(stream posts.PostsService_GetPostsStreamServer) error {
@@ -149,7 +129,7 @@ func toGetPostReply(post entities.PostWithTags) *posts.GetPostReply {
 		State:          post.State,
 		CreateDate:     timestamppb.New(post.CreateDate),
 		LastUpdateDate: timestamppb.New(post.LastUpdateDate),
-		TagIds:         utils.ToInt32(post.TagIds),
+		TagIds:         utils.ToInt32(post.TagIds()),
 	}
 }
 

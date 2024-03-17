@@ -150,59 +150,6 @@ func GetPosts(tx *sql.Tx, ctx context.Context, limit int, offset int) ([]entitie
 	return posts, nil
 }
 
-func GetPostsWithTags(tx *sql.Tx, ctx context.Context, limit int, offset int) ([]entities.PostWithTags, error) {
-	var posts []entities.PostWithTags
-	var (
-		id             int
-		uuid           string
-		authorUuid     string
-		text           string
-		previewText    string
-		topic          string
-		state          string
-		createDate     time.Time
-		lastUpdateDate time.Time
-		tagsAggregated string
-	)
-
-	rows, err := tx.QueryContext(ctx, GET_POSTS_WITH_TAGS_QUERY, limit, offset, utilsEntities.POST_STATE_DELETED)
-	if err != nil {
-		return posts, fmt.Errorf("error at loading posts, case after Query: %s", err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		err := rows.Scan(&id, &uuid, &authorUuid, &text, &previewText, &topic, &state, &createDate, &lastUpdateDate, &tagsAggregated)
-		if err != nil {
-			return posts, fmt.Errorf("error at loading posts, case iterating and using rows.Scan: %s", err)
-		}
-		tagIds, err := convertTagsInt(tagsAggregated)
-		if err != nil {
-			return posts, fmt.Errorf("error at loading posts, converting tag ids: %s", err)
-		}
-		posts = append(posts, entities.PostWithTags{
-			Post: entities.Post{
-				Id:             id,
-				AuthorUuid:     authorUuid,
-				Uuid:           uuid,
-				Text:           text,
-				PreviewText:    previewText,
-				Topic:          topic,
-				State:          state,
-				CreateDate:     createDate,
-				LastUpdateDate: lastUpdateDate,
-			},
-			TagIds: tagIds,
-		})
-	}
-	err = rows.Err()
-	if err != nil {
-		return posts, fmt.Errorf("error at loading posts, case after iterating: %s", err)
-	}
-
-	return posts, nil
-}
-
 func GetPostsByIds(tx *sql.Tx, ctx context.Context, ids []int, limit int, offset int) ([]entities.Post, error) {
 	var posts []entities.Post
 	var (
@@ -254,27 +201,26 @@ func GetPost(tx *sql.Tx, ctx context.Context, uuid string) (entities.Post, error
 }
 
 func GetPostWithTags(tx *sql.Tx, ctx context.Context, uuid string) (entities.PostWithTags, error) {
-	var post entities.PostWithTags
-	var tagsAggregated string
-
-	err := tx.QueryRowContext(ctx, GET_POST_WITH_TAGS_BY_UUID_QUERY, uuid, utilsEntities.POST_STATE_DELETED).
-		Scan(&post.Id, &post.Uuid, &post.AuthorUuid, &post.Text, &post.PreviewText, &post.Topic, &post.State, &post.CreateDate, &post.LastUpdateDate, &tagsAggregated)
+	var result entities.PostWithTags
+	post, err := GetPost(tx, ctx, uuid)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return post, err
+			return result, err
 		} else {
-			return post, fmt.Errorf("error at loading post by uuid '%v' from db, case after QueryRow.Scan: %s", uuid, err)
+			return result, fmt.Errorf("error at loading post by uuid '%v' from db, case after QueryRow.Scan: %s", uuid, err)
 		}
 	}
-
-	tagIds, err := convertTagsInt(tagsAggregated)
+	tags, err := GetTagsByPostId(tx, ctx, post.Id)
 	if err != nil {
-		return post, fmt.Errorf("error at loading posts, converting tag ids: %s", err)
+		if err == sql.ErrNoRows {
+			return result, err
+		} else {
+			return result, fmt.Errorf("error at loading post tags. Post uuid '%v'. Error: %s", uuid, err)
+		}
 	}
-
-	post.TagIds = tagIds
-
-	return post, nil
+	result.Post = post
+	result.Tags = tags
+	return result, nil
 }
 
 func CreatePost(tx *sql.Tx, ctx context.Context, params *CreatePostParams) (int, error) {
