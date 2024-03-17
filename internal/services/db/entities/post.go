@@ -18,7 +18,7 @@ type Post struct {
 
 type PostWithTags struct {
 	Post
-	Tags map[int]string
+	Tags []Tag
 }
 
 func (post PostWithTags) TagIds() []int {

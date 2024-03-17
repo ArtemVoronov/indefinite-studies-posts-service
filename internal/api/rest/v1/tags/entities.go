@@ -1,8 +1,8 @@
 package tags
 
 type TagDTO struct {
-	Id   int
-	Name string
+	Id   int    `json:"Id" binding:"required"`
+	Name string `json:"Name" binding:"required"`
 }
 
 type TagListDTO struct {

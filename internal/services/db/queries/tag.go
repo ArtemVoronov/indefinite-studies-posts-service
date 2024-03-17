@@ -36,7 +36,7 @@ const (
 )
 
 func GetTags(tx *sql.Tx, ctx context.Context, limit int, offset int) ([]entities.Tag, error) {
-	var result []entities.Tag
+	var result []entities.Tag = make([]entities.Tag, 0)
 	var (
 		id   int
 		name string
@@ -193,8 +193,8 @@ func RemoveAllTagsFromPost(tx *sql.Tx, ctx context.Context, postId int) error {
 	return nil
 }
 
-func GetTagsByPostId(tx *sql.Tx, ctx context.Context, postId int) (map[int]string, error) {
-	var result map[int]string = make(map[int]string)
+func GetTagsByPostId(tx *sql.Tx, ctx context.Context, postId int) ([]entities.Tag, error) {
+	var result []entities.Tag = make([]entities.Tag, 0)
 	var (
 		id   int
 		name string
@@ -211,7 +211,7 @@ func GetTagsByPostId(tx *sql.Tx, ctx context.Context, postId int) (map[int]strin
 		if err != nil {
 			return result, fmt.Errorf("error at loading tags from db, case iterating and using rows.Scan: %s", err)
 		}
-		result[id] = name
+		result = append(result, entities.Tag{Id: id, Name: name})
 	}
 	err = rows.Err()
 	if err != nil {

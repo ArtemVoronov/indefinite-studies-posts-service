@@ -1,6 +1,10 @@
 package posts
 
-import "time"
+import (
+	"time"
+
+	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/api/rest/v1/tags"
+)
 
 type PostDTO struct {
 	Uuid        string
@@ -10,7 +14,7 @@ type PostDTO struct {
 	Topic       string
 	State       string
 	CreateDate  time.Time
-	Tags        map[int]string
+	Tags        []tags.TagDTO
 }
 
 // TODO: need to add additional service and remove paramter ShardsCount, UI should not know about shards at all

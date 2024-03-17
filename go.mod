@@ -1,6 +1,6 @@
 module github.com/ArtemVoronov/indefinite-studies-posts-service
 
-go 1.18
+go 1.21
 
 require (
 	github.com/ArtemVoronov/indefinite-studies-utils v0.0.0-20240313085025-24bf7bae1ecb

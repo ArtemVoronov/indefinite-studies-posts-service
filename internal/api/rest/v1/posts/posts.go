@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/api/rest/v1/tags"
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services"
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/entities"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api"
@@ -240,7 +241,7 @@ func convertPost(input entities.PostWithTags) PostDTO {
 		Topic:       input.Topic,
 		AuthorUuid:  input.AuthorUuid,
 		State:       input.State,
-		Tags:        input.Tags,
+		Tags:        tags.ConvertTags(input.Tags),
 		CreateDate:  input.CreateDate,
 	}
 }
@@ -253,7 +254,7 @@ func convertPostPreview(input entities.PostWithTags) PostDTO {
 		Topic:       input.Topic,
 		AuthorUuid:  input.AuthorUuid,
 		State:       input.State,
-		Tags:        input.Tags,
+		Tags:        tags.ConvertTags(input.Tags),
 		CreateDate:  input.CreateDate,
 	}
 }

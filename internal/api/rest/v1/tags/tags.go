@@ -41,7 +41,7 @@ func GetTags(c *gin.Context) {
 	}
 
 	result := &TagListDTO{
-		Data:   convertTags(list),
+		Data:   ConvertTags(list),
 		Count:  len(list),
 		Offset: offset,
 		Limit:  limit,
@@ -76,7 +76,7 @@ func GetTag(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, convertTag(tag))
+	c.JSON(http.StatusOK, ConvertTag(tag))
 }
 
 func CreateTag(c *gin.Context) {
@@ -194,17 +194,17 @@ func RemoveTags(c *gin.Context) {
 	c.JSON(http.StatusOK, api.DONE)
 }
 
-func convertTags(input []entities.Tag) []TagDTO {
+func ConvertTags(input []entities.Tag) []TagDTO {
 	if input == nil {
 		return make([]TagDTO, 0)
 	}
 	var result []TagDTO
 	for _, p := range input {
-		result = append(result, convertTag(p))
+		result = append(result, ConvertTag(p))
 	}
 	return result
 }
 
-func convertTag(input entities.Tag) TagDTO {
+func ConvertTag(input entities.Tag) TagDTO {
 	return TagDTO{Id: input.Id, Name: input.Name}
 }
