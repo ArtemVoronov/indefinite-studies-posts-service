@@ -241,6 +241,7 @@ func convertPost(input entities.PostWithTags) PostDTO {
 		AuthorUuid:  input.AuthorUuid,
 		State:       input.State,
 		Tags:        input.Tags,
+		CreateDate:  input.CreateDate,
 	}
 }
 
@@ -253,5 +254,6 @@ func convertPostPreview(input entities.PostWithTags) PostDTO {
 		AuthorUuid:  input.AuthorUuid,
 		State:       input.State,
 		Tags:        input.Tags,
+		CreateDate:  input.CreateDate,
 	}
 }

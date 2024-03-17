@@ -1,5 +1,7 @@
 package posts
 
+import "time"
+
 type PostDTO struct {
 	Uuid        string
 	AuthorUuid  string
@@ -7,6 +9,7 @@ type PostDTO struct {
 	PreviewText string
 	Topic       string
 	State       string
+	CreateDate  time.Time
 	Tags        map[int]string
 }
 
