@@ -108,6 +108,7 @@ func CreatePost(c *gin.Context) {
 		return
 	}
 
+	// TODO: review the state model for new posts, add some case of moderation befre pushing to the queue
 	postJSON, err := json.Marshal(entities.PostWithTagsForQueue{PostUuid: post.Post.Uuid, CreateDate: post.Post.CreateDate, TagIds: post.TagIds})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create post")
