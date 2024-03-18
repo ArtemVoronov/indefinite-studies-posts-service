@@ -196,7 +196,7 @@ func RemoveTags(c *gin.Context) {
 
 func ConvertTags(input []entities.Tag) []TagDTO {
 	if input == nil {
-		return make([]TagDTO, 0)
+		return []TagDTO{}
 	}
 	var result []TagDTO
 	for _, p := range input {

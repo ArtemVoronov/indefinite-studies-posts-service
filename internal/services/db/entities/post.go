@@ -30,6 +30,7 @@ func (post PostWithTags) TagIds() []int {
 }
 
 type PostWithTagsForQueue struct {
-	PostUuid string
-	TagIds   []int
+	PostUuid   string
+	CreateDate time.Time
+	TagIds     []int
 }
