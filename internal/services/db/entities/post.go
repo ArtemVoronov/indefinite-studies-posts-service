@@ -17,16 +17,14 @@ type Post struct {
 }
 
 type PostWithTags struct {
-	Post
-	Tags []Tag
+	Post   Post
+	Tags   []Tag
+	TagIds []int
 }
 
-func (post PostWithTags) TagIds() []int {
-	result := make([]int, 0, len(post.Tags))
-	for k := range post.Tags {
-		result = append(result, k)
-	}
-	return result
+type PostWithTagIds struct {
+	Post   Post
+	TagIds []int
 }
 
 type PostWithTagsForQueue struct {

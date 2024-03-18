@@ -200,8 +200,8 @@ func GetPost(tx *sql.Tx, ctx context.Context, uuid string) (entities.Post, error
 	return post, nil
 }
 
-func GetPostWithTags(tx *sql.Tx, ctx context.Context, uuid string) (entities.PostWithTags, error) {
-	var result entities.PostWithTags
+func GetPostWithTagIds(tx *sql.Tx, ctx context.Context, uuid string) (entities.PostWithTagIds, error) {
+	var result entities.PostWithTagIds
 	post, err := GetPost(tx, ctx, uuid)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -210,7 +210,7 @@ func GetPostWithTags(tx *sql.Tx, ctx context.Context, uuid string) (entities.Pos
 			return result, fmt.Errorf("error at loading post by uuid '%v' from db, case after QueryRow.Scan: %s", uuid, err)
 		}
 	}
-	tags, err := GetTagsByPostId(tx, ctx, post.Id)
+	tagIds, err := GetTagIdsByPostId(tx, ctx, post.Id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return result, err
@@ -219,7 +219,7 @@ func GetPostWithTags(tx *sql.Tx, ctx context.Context, uuid string) (entities.Pos
 		}
 	}
 	result.Post = post
-	result.Tags = tags
+	result.TagIds = tagIds
 	return result, nil
 }
 

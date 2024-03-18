@@ -34,6 +34,8 @@ func Instance() *Services {
 	return instance
 }
 
+const TAGS_SHARD_SUFFIX = "_tags_unique_shard"
+
 func createServices() *Services {
 	authcreds, err := app.LoadTLSCredentialsForClient(utils.EnvVar("AUTH_SERVICE_CLIENT_TLS_CERT_PATH"))
 	if err != nil {
@@ -44,7 +46,7 @@ func createServices() *Services {
 		log.Fatalf("unable to create kafka producer: %s", err)
 	}
 
-	dbClients := []*db.PostgreSQLService{}
+	clientsPostsShards := []*db.PostgreSQLService{}
 	for i := 1; i <= shard.DEFAULT_BUCKET_FACTOR; i++ {
 		dbConfig := &db.DBParams{
 			Host:         utils.EnvVar("DATABASE_HOST"),
@@ -54,13 +56,24 @@ func createServices() *Services {
 			DatabaseName: utils.EnvVar("DATABASE_NAME_PREFIX") + "_" + strconv.Itoa(i),
 			SslMode:      utils.EnvVar("DATABASE_SSL_MODE"),
 		}
-		dbClients = append(dbClients, db.CreatePostgreSQLService(dbConfig))
+		clientsPostsShards = append(clientsPostsShards, db.CreatePostgreSQLService(dbConfig))
 	}
+
+	clientTagsShard := &db.PostgreSQLService{}
+	dbConfig := &db.DBParams{
+		Host:         utils.EnvVar("DATABASE_HOST"),
+		Port:         utils.EnvVar("DATABASE_PORT"),
+		Username:     utils.EnvVar("DATABASE_USER"),
+		Password:     utils.EnvVar("DATABASE_PASSWORD"),
+		DatabaseName: utils.EnvVar("DATABASE_NAME_PREFIX") + TAGS_SHARD_SUFFIX,
+		SslMode:      utils.EnvVar("DATABASE_SSL_MODE"),
+	}
+	clientTagsShard = db.CreatePostgreSQLService(dbConfig)
 
 	return &Services{
 		auth:          auth.CreateAuthGRPCService(utils.EnvVar("AUTH_SERVICE_GRPC_HOST")+":"+utils.EnvVar("AUTH_SERVICE_GRPC_PORT"), &authcreds),
 		kafkaProducer: kafkaProducer,
-		posts:         posts.CreatePostsService(dbClients),
+		posts:         posts.CreatePostsService(clientsPostsShards, clientTagsShard),
 	}
 }
 

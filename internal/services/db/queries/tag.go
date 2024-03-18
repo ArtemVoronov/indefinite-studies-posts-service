@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/entities"
 )
@@ -32,6 +33,16 @@ const (
 	GET_TAGS_BY_POST_ID_QUERY = `SELECT tags.id, tags.name 
     FROM (SELECT tag_id FROM posts_and_tags WHERE post_id = $1) as chosen_tags
     INNER JOIN tags ON chosen_tags.tag_id = tags.id;
+    `
+
+	GET_TAG_IDS_BY_POST_ID_QUERY = `SELECT tag_id 
+    FROM posts_and_tags 
+    WHERE post_id = $1;
+    `
+
+	GET_TAGS_BY_IDS_QUERY = `SELECT tags.id, tags.name 
+    FROM tags 
+    WHERE tags.id = ANY($1::int[]);
     `
 )
 
@@ -193,14 +204,47 @@ func RemoveAllTagsFromPost(tx *sql.Tx, ctx context.Context, postId int) error {
 	return nil
 }
 
-func GetTagsByPostId(tx *sql.Tx, ctx context.Context, postId int) ([]entities.Tag, error) {
+func GetTagIdsByPostId(tx *sql.Tx, ctx context.Context, postId int) ([]int, error) {
+	var result []int
+	var (
+		id int
+	)
+
+	rows, err := tx.QueryContext(ctx, GET_TAG_IDS_BY_POST_ID_QUERY, postId)
+	if err != nil {
+		return result, fmt.Errorf("error at loading tags from db, case after Query: %s", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		err := rows.Scan(&id)
+		if err != nil {
+			return result, fmt.Errorf("error at loading tags from db, case iterating and using rows.Scan: %s", err)
+		}
+		result = append(result, id)
+	}
+	err = rows.Err()
+	if err != nil {
+		return result, fmt.Errorf("error at loading tags from db, case after iterating: %s", err)
+	}
+
+	return result, nil
+}
+
+func GetTagsByIds(tx *sql.Tx, ctx context.Context, tagIds []int) ([]entities.Tag, error) {
+	tagsConverted := make([]string, len(tagIds), len(tagIds))
+	for i, tagId := range tagIds {
+		tagsConverted[i] = fmt.Sprintf("%v", tagId)
+	}
+	tagsStr := "{" + strings.Join(tagsConverted, ",") + "}"
+
 	var result []entities.Tag = make([]entities.Tag, 0)
 	var (
 		id   int
 		name string
 	)
 
-	rows, err := tx.QueryContext(ctx, GET_TAGS_BY_POST_ID_QUERY, postId)
+	rows, err := tx.QueryContext(ctx, GET_TAGS_BY_IDS_QUERY, tagsStr)
 	if err != nil {
 		return result, fmt.Errorf("error at loading tags from db, case after Query: %s", err)
 	}

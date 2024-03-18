@@ -121,15 +121,15 @@ func (s *PostsServiceServer) GetTags(ctx context.Context, in *posts.GetTagsReque
 
 func toGetPostReply(post entities.PostWithTags) *posts.GetPostReply {
 	return &posts.GetPostReply{
-		Uuid:           post.Uuid,
-		AuthorUuid:     post.AuthorUuid,
-		Text:           post.Text,
-		PreviewText:    post.PreviewText,
-		Topic:          post.Topic,
-		State:          post.State,
-		CreateDate:     timestamppb.New(post.CreateDate),
-		LastUpdateDate: timestamppb.New(post.LastUpdateDate),
-		TagIds:         utils.ToInt32(post.TagIds()),
+		Uuid:           post.Post.Uuid,
+		AuthorUuid:     post.Post.AuthorUuid,
+		Text:           post.Post.Text,
+		PreviewText:    post.Post.PreviewText,
+		Topic:          post.Post.Topic,
+		State:          post.Post.State,
+		CreateDate:     timestamppb.New(post.Post.CreateDate),
+		LastUpdateDate: timestamppb.New(post.Post.LastUpdateDate),
+		TagIds:         utils.ToInt32(post.TagIds),
 	}
 }
 

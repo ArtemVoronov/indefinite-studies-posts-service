@@ -108,7 +108,7 @@ func CreatePost(c *gin.Context) {
 		return
 	}
 
-	postJSON, err := json.Marshal(entities.PostWithTagsForQueue{PostUuid: post.Uuid, CreateDate: post.CreateDate, TagIds: post.TagIds()})
+	postJSON, err := json.Marshal(entities.PostWithTagsForQueue{PostUuid: post.Post.Uuid, CreateDate: post.Post.CreateDate, TagIds: post.TagIds})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create post")
 		log.Error(fmt.Sprintf("Unable to convert post with uuid %v to JSON", post.Post.Uuid), err.Error())
@@ -181,7 +181,7 @@ func UpdatePost(c *gin.Context) {
 	}
 
 	if dto.TagIds != nil {
-		postJSON, err := json.Marshal(entities.PostWithTagsForQueue{PostUuid: post.Uuid, CreateDate: post.CreateDate, TagIds: post.TagIds()})
+		postJSON, err := json.Marshal(entities.PostWithTagsForQueue{PostUuid: post.Post.Uuid, CreateDate: post.Post.CreateDate, TagIds: post.TagIds})
 		if err != nil {
 			// TODO: create some daemon that catch unpublished posts
 			log.Error(fmt.Sprintf("Unable to convert post with uuid %v to JSON", post.Post.Uuid), err.Error())
@@ -235,26 +235,26 @@ func DeletePost(c *gin.Context) {
 
 func convertPost(input entities.PostWithTags) PostDTO {
 	return PostDTO{
-		Uuid:        input.Uuid,
-		Text:        input.Text,
-		PreviewText: input.PreviewText,
-		Topic:       input.Topic,
-		AuthorUuid:  input.AuthorUuid,
-		State:       input.State,
+		Uuid:        input.Post.Uuid,
+		Text:        input.Post.Text,
+		PreviewText: input.Post.PreviewText,
+		Topic:       input.Post.Topic,
+		AuthorUuid:  input.Post.AuthorUuid,
+		State:       input.Post.State,
 		Tags:        tags.ConvertTags(input.Tags),
-		CreateDate:  input.CreateDate,
+		CreateDate:  input.Post.CreateDate,
 	}
 }
 
 func convertPostPreview(input entities.PostWithTags) PostDTO {
 	return PostDTO{
-		Uuid:        input.Uuid,
+		Uuid:        input.Post.Uuid,
 		Text:        "",
-		PreviewText: input.PreviewText,
-		Topic:       input.Topic,
-		AuthorUuid:  input.AuthorUuid,
-		State:       input.State,
+		PreviewText: input.Post.PreviewText,
+		Topic:       input.Post.Topic,
+		AuthorUuid:  input.Post.AuthorUuid,
+		State:       input.Post.State,
 		Tags:        tags.ConvertTags(input.Tags),
-		CreateDate:  input.CreateDate,
+		CreateDate:  input.Post.CreateDate,
 	}
 }

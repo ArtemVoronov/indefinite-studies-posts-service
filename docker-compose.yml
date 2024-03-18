@@ -28,7 +28,7 @@ services:
     environment:
       POSTGRES_USER: "${DATABASE_USER}"
       POSTGRES_PASSWORD: "${DATABASE_PASSWORD}"
-      POSTGRES_MULTIPLE_DATABASES: "${DATABASE_NAME_PREFIX}_1,${DATABASE_NAME_PREFIX}_2,${DATABASE_NAME_PREFIX}_3,${DATABASE_NAME_PREFIX}_4"
+      POSTGRES_MULTIPLE_DATABASES: "${DATABASE_NAME_PREFIX}_1,${DATABASE_NAME_PREFIX}_2,${DATABASE_NAME_PREFIX}_3,${DATABASE_NAME_PREFIX}_4,${DATABASE_NAME_PREFIX}_tags_unique_shard"
     volumes:
       - ./scripts/docker-postgresql-multiple-databases:/docker-entrypoint-initdb.d
       - database-volume:/var/lib/postgresql/data
@@ -42,16 +42,17 @@ services:
       - "3009-3010:3005"
       - "50055-50056:50051"
     depends_on:
-      - liquibase_shard_1
-      - liquibase_shard_2
-      - liquibase_shard_3
-      - liquibase_shard_4
+      - liquibase_posts_shard_1
+      - liquibase_posts_shard_2
+      - liquibase_posts_shard_3
+      - liquibase_posts_shard_4
+      - liquibase_tags_unique_shard
       - postgres
 
-  liquibase_shard_1:
+  liquibase_posts_shard_1:
     image: liquibase/liquibase
     volumes:
-      - ./docker/liquibase/migrations:/liquibase/changelog
+      - ./docker/liquibase/migrations/posts:/liquibase/changelog
     command:
       [
         "liquibase",
@@ -64,10 +65,10 @@ services:
     depends_on:
       - postgres
 
-  liquibase_shard_2:
+  liquibase_posts_shard_2:
     image: liquibase/liquibase
     volumes:
-      - ./docker/liquibase/migrations:/liquibase/changelog
+      - ./docker/liquibase/migrations/posts:/liquibase/changelog
     command:
       [
         "liquibase",
@@ -80,10 +81,10 @@ services:
     depends_on:
       - postgres
 
-  liquibase_shard_3:
+  liquibase_posts_shard_3:
     image: liquibase/liquibase
     volumes:
-      - ./docker/liquibase/migrations:/liquibase/changelog
+      - ./docker/liquibase/migrations/posts:/liquibase/changelog
     command:
       [
         "liquibase",
@@ -96,10 +97,10 @@ services:
     depends_on:
       - postgres
 
-  liquibase_shard_4:
+  liquibase_posts_shard_4:
     image: liquibase/liquibase
     volumes:
-      - ./docker/liquibase/migrations:/liquibase/changelog
+      - ./docker/liquibase/migrations/posts:/liquibase/changelog
     command:
       [
         "liquibase",
@@ -107,6 +108,22 @@ services:
         "--password=${DATABASE_PASSWORD}",
         "--changeLogFile=changelog/db.changelog-root.xml",
         "--url=${DATABASE_URL}_4",
+        "update"
+      ]
+    depends_on:
+      - postgres
+
+  liquibase_tags_unique_shard:
+    image: liquibase/liquibase
+    volumes:
+      - ./docker/liquibase/migrations/tags:/liquibase/changelog
+    command:
+      [
+        "liquibase",
+        "--username=${DATABASE_USER}",
+        "--password=${DATABASE_PASSWORD}",
+        "--changeLogFile=changelog/db.changelog-root.xml",
+        "--url=${DATABASE_URL}_tags_unique_shard",
         "update"
       ]
     depends_on:
