@@ -29,6 +29,7 @@ type PostWithTagIds struct {
 
 type PostWithTagsForQueue struct {
 	PostUuid   string
+	AuthorUuid string
 	CreateDate time.Time
 	State      string
 	TagIds     []int

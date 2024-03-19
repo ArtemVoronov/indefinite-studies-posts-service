@@ -222,6 +222,7 @@ func DeletePost(c *gin.Context) {
 func sendPostToKafkaQueue(post entities.PostWithTags, queueTopics ...string) {
 	postWithTagsForQueue := entities.PostWithTagsForQueue{
 		PostUuid:   post.Post.Uuid,
+		AuthorUuid: post.Post.AuthorUuid,
 		CreateDate: post.Post.CreateDate,
 		State:      post.Post.State,
 		TagIds:     post.TagIds,
