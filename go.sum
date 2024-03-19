@@ -1,9 +1,5 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 cloud.google.com/go v0.34.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
-github.com/ArtemVoronov/indefinite-studies-utils v0.0.0-20221025145033-22dbb4c4440e h1:erDW0xjxBB7nYaJeftUHUY/VouI5hqsyWMiBNeInt4U=
-github.com/ArtemVoronov/indefinite-studies-utils v0.0.0-20221025145033-22dbb4c4440e/go.mod h1:0zrl+JOg/jjseXtbWaXIOt15ycn9JDas7VsVCNCDQ1g=
-github.com/ArtemVoronov/indefinite-studies-utils v0.0.0-20240313081704-ce05ab8c9d86 h1:qLtHqGA0QLnsAmvNkTOWoRAPTSCYNVJE/Ps4IaC22qg=
-github.com/ArtemVoronov/indefinite-studies-utils v0.0.0-20240313081704-ce05ab8c9d86/go.mod h1:0zrl+JOg/jjseXtbWaXIOt15ycn9JDas7VsVCNCDQ1g=
 github.com/ArtemVoronov/indefinite-studies-utils v0.0.0-20240313085025-24bf7bae1ecb h1:a7I528aSaqjHF1Yq3iG4tN7ut5KaK0HT9K15p4ThoQs=
 github.com/ArtemVoronov/indefinite-studies-utils v0.0.0-20240313085025-24bf7bae1ecb/go.mod h1:0zrl+JOg/jjseXtbWaXIOt15ycn9JDas7VsVCNCDQ1g=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
@@ -181,6 +177,7 @@ github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.7.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.8.0 h1:pSgiaMZlXftHpm5L7V1+rVB+AZJydKsMxsQBIJw4PKk=
+github.com/stretchr/testify v1.8.0/go.mod h1:yNjHg4UonilssWZ8iaSj1OCr/vHnekPRkoO+kdMU+MU=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/ugorji/go v1.2.7/go.mod h1:nF9osbDWLy6bDVv/Rtoh6QgnvNDpmCalQV5urGCCS6M=
 github.com/ugorji/go/codec v1.2.7 h1:YPXUKf7fYbp/y8xloBqZOw2qaVggbfwMlI8WM3wZUJ0=
@@ -323,5 +320,6 @@ gopkg.in/yaml.v2 v2.4.0/go.mod h1:RDklbk79AGWmwhnvt/jBztapEOGDOx6ZbXqjP6csGnQ=
 gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
+gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
