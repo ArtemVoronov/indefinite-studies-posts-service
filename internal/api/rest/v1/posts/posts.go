@@ -19,7 +19,8 @@ import (
 )
 
 const NewPostsTopic = "new_posts"
-const UpdatedPostsTopic = "updated_posts"
+const UpdatedPostsStatesTopic = "updated_posts_states"
+const UpdatedPostsTagsTopic = "updated_posts_tags"
 const DeletedPostsTopic = "deleted_posts"
 
 func GetPost(c *gin.Context) {
@@ -108,19 +109,7 @@ func CreatePost(c *gin.Context) {
 		return
 	}
 
-	// TODO: review the state model for new posts, add some case of moderation befre pushing to the queue
-	postJSON, err := json.Marshal(entities.PostWithTagsForQueue{PostUuid: post.Post.Uuid, CreateDate: post.Post.CreateDate, TagIds: post.TagIds})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, "Unable to create post")
-		log.Error(fmt.Sprintf("Unable to convert post with uuid %v to JSON", post.Post.Uuid), err.Error())
-		return
-	}
-
-	err = services.Instance().KafkaProducer().CreateMessage(NewPostsTopic, string(postJSON))
-	if err != nil {
-		// TODO: create some daemon that catch unpublished posts
-		log.Error(fmt.Sprintf("Unable to put post uuid %v into queue %v", post.Post.Uuid, NewPostsTopic), err.Error())
-	}
+	sendPostToKafkaQueue(post, NewPostsTopic)
 
 	c.JSON(http.StatusCreated, postUuid)
 }
@@ -181,18 +170,18 @@ func UpdatePost(c *gin.Context) {
 		return
 	}
 
-	if dto.TagIds != nil {
-		postJSON, err := json.Marshal(entities.PostWithTagsForQueue{PostUuid: post.Post.Uuid, CreateDate: post.Post.CreateDate, TagIds: post.TagIds})
-		if err != nil {
-			// TODO: create some daemon that catch unpublished posts
-			log.Error(fmt.Sprintf("Unable to convert post with uuid %v to JSON", post.Post.Uuid), err.Error())
-		}
+	queueTopicsToNotify := make([]string, 0, 2)
 
-		err = services.Instance().KafkaProducer().CreateMessage(UpdatedPostsTopic, string(postJSON))
-		if err != nil {
-			// TODO: create some daemon that catch unpublished posts
-			log.Error(fmt.Sprintf("Unable to put post uuid %v into queue %v", post.Post.Uuid, UpdatedPostsTopic), err.Error())
-		}
+	if dto.State != nil {
+		queueTopicsToNotify = append(queueTopicsToNotify, UpdatedPostsStatesTopic)
+	}
+
+	if dto.TagIds != nil {
+		queueTopicsToNotify = append(queueTopicsToNotify, UpdatedPostsTagsTopic)
+	}
+
+	if len(queueTopicsToNotify) != 0 {
+		sendPostToKafkaQueue(post, queueTopicsToNotify...)
 	}
 
 	c.JSON(http.StatusOK, api.DONE)
@@ -223,15 +212,36 @@ func DeletePost(c *gin.Context) {
 		return
 	}
 
-	err = services.Instance().KafkaProducer().CreateMessage(DeletedPostsTopic, post.Uuid)
-	if err != nil {
-		// TODO: create some daemon that catch unpublished posts
-		log.Error(fmt.Sprintf("Unable to put post uuid %v into queue %v", post.Uuid, DeletedPostsTopic), err.Error())
-	}
+	sendMessageToKafkaQueue(DeletedPostsTopic, post.Uuid)
 
 	log.Info(fmt.Sprintf("Deleted post. Uuid: %v", post.Uuid))
 
 	c.JSON(http.StatusOK, api.DONE)
+}
+
+func sendPostToKafkaQueue(post entities.PostWithTags, queueTopics ...string) {
+	postWithTagsForQueue := entities.PostWithTagsForQueue{
+		PostUuid:   post.Post.Uuid,
+		CreateDate: post.Post.CreateDate,
+		State:      post.Post.State,
+		TagIds:     post.TagIds,
+	}
+	postJSON, err := json.Marshal(postWithTagsForQueue)
+	if err != nil {
+		// TODO: create some daemon that catch unpublished posts
+		log.Error(fmt.Sprintf("Unable to convert post with uuid '%v' to JSON", post.Post.Uuid), err.Error())
+	}
+	for _, queueTopic := range queueTopics {
+		sendMessageToKafkaQueue(queueTopic, string(postJSON))
+	}
+}
+
+func sendMessageToKafkaQueue(queueTopic string, message string) {
+	err := services.Instance().KafkaProducer().CreateMessage(queueTopic, message)
+	if err != nil {
+		// TODO: create some daemon that catch unpublished posts
+		log.Error(fmt.Sprintf("Unable to put message '%v' into queue '%v'", message, queueTopic), err.Error())
+	}
 }
 
 func convertPost(input entities.PostWithTags) PostDTO {
