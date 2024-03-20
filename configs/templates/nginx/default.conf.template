@@ -3,12 +3,25 @@ upstream posts-service-loadbalancer {
     server ${HOST_API}:3010;
 }
 
+# 10Mb cache with name 'basic_cache'
+proxy_cache_path /data/nginx/cache keys_zone=basic_cache:10m;
+
+# TODO: add purge operation for post's updating case
+
 server {
     listen       80;
     listen  [::]:80;
     server_name  localhost;
 
     location / {
+        proxy_pass http://posts-service-loadbalancer;
+    }
+
+    location ~* "^/api/v[1-9]/posts(/preview)?/[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$" {
+        # all responses for getting posts and previews by UUID should be cached for 10 minutes, others should not
+        proxy_cache basic_cache;
+        proxy_cache_valid any 10m;
+
         proxy_pass http://posts-service-loadbalancer;
     }
 }
