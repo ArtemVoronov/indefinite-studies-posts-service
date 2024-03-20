@@ -6,7 +6,7 @@ upstream posts-service-loadbalancer {
 # 10Mb cache with name 'basic_cache'
 proxy_cache_path /data/nginx/cache keys_zone=basic_cache:10m;
 
-# TODO: add purge operation for post's updating case
+# TODO: cache only published posts
 
 server {
     listen       80;
