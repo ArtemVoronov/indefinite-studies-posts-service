@@ -31,6 +31,20 @@ func GetPost(c *gin.Context) {
 		return
 	}
 
+	cached, err := getFromCache(postUuid)
+	if err != nil {
+		log.Error("Unable to read cache", err.Error())
+	}
+	if len(cached) > 0 {
+		result, err := toPost(cached)
+		if err != nil {
+			log.Error("Unable to read cache", err.Error())
+		} else {
+			c.JSON(http.StatusOK, result)
+			return
+		}
+	}
+
 	post, err := services.Instance().Posts().GetPostWithTags(postUuid)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -42,7 +56,23 @@ func GetPost(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, convertPost(post))
+	convertedPost := convertPost(post)
+	postJSON, err := json.Marshal(convertedPost)
+	if err != nil {
+		// TODO: create some daemon that catch unpublished posts
+		log.Error(fmt.Sprintf("Unable to convert post with uuid '%v' to JSON", post.Post.Uuid), err.Error())
+	}
+
+	result := string(postJSON)
+
+	if convertedPost.State == utilsEntities.POST_STATE_PUBLISHED {
+		err = putToCache(post.Post.Uuid, result)
+		if err != nil {
+			log.Error("Unable to put post into the cache", err.Error())
+		}
+	}
+
+	c.JSON(http.StatusOK, convertedPost)
 }
 
 func GetPostPreview(c *gin.Context) {
@@ -51,6 +81,20 @@ func GetPostPreview(c *gin.Context) {
 	if postUuid == "" {
 		c.JSON(http.StatusBadRequest, "Missed 'uuid' param")
 		return
+	}
+
+	cached, err := getFromCache(postUuid)
+	if err != nil {
+		log.Error("Unable to read cache", err.Error())
+	}
+	if len(cached) > 0 {
+		result, err := toPost(cached)
+		if err != nil {
+			log.Error("Unable to read cache", err.Error())
+		} else {
+			c.JSON(http.StatusOK, result)
+			return
+		}
 	}
 
 	post, err := services.Instance().Posts().GetPostWithTags(postUuid)
@@ -64,7 +108,23 @@ func GetPostPreview(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, convertPostPreview(post))
+	convertedPostPreview := convertPostPreview(post)
+	postJSON, err := json.Marshal(convertedPostPreview)
+	if err != nil {
+		// TODO: create some daemon that catch unpublished posts
+		log.Error(fmt.Sprintf("Unable to convert post with uuid '%v' to JSON", post.Post.Uuid), err.Error())
+	}
+
+	result := string(postJSON)
+
+	if convertedPostPreview.State == utilsEntities.POST_STATE_PUBLISHED {
+		err = putToCache(post.Post.Uuid, result)
+		if err != nil {
+			log.Error("Unable to put post into the cache", err.Error())
+		}
+	}
+
+	c.JSON(http.StatusOK, convertedPostPreview)
 }
 
 func CreatePost(c *gin.Context) {
@@ -217,6 +277,24 @@ func DeletePost(c *gin.Context) {
 	log.Info(fmt.Sprintf("Deleted post. Uuid: %v", post.Uuid))
 
 	c.JSON(http.StatusOK, api.DONE)
+}
+
+func getFromCache(key string) (string, error) {
+	return services.Instance().Cache().Get(key)
+}
+
+func putToCache(key, value string) error {
+	cache := services.Instance().Cache()
+	return cache.Set(key, value, cache.PostsTTL)
+}
+
+func toPost(jsonStr string) (PostDTO, error) {
+	var post PostDTO
+	err := json.Unmarshal([]byte(jsonStr), &post)
+	if err != nil {
+		return post, fmt.Errorf("unable to unmarshal post: %v", err)
+	}
+	return post, nil
 }
 
 func sendPostToKafkaQueue(post entities.PostWithTags, queueTopics ...string) {

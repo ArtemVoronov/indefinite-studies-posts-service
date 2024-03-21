@@ -6,6 +6,7 @@ require (
 	github.com/ArtemVoronov/indefinite-studies-utils v0.0.0-20240319140036-a53466828537
 	github.com/gin-contrib/expvar v0.0.1
 	github.com/gin-gonic/gin v1.8.1
+	github.com/go-redis/redis/v8 v8.11.5
 	github.com/google/uuid v1.3.0
 	github.com/lib/pq v1.10.6
 	github.com/sirupsen/logrus v1.9.0
@@ -14,7 +15,9 @@ require (
 )
 
 require (
+	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/confluentinc/confluent-kafka-go v1.9.2 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/go-playground/locales v0.14.0 // indirect
 	github.com/go-playground/universal-translator v0.18.0 // indirect

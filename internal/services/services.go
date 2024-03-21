@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/cache"
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/posts"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/app"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/log"
@@ -20,6 +21,7 @@ type Services struct {
 	db            *db.PostgreSQLService
 	posts         *posts.PostsService
 	kafkaProducer *kafka.KafkaProducerService
+	cache         *cache.RedisCacheService
 }
 
 var once sync.Once
@@ -74,6 +76,7 @@ func createServices() *Services {
 		auth:          auth.CreateAuthGRPCService(utils.EnvVar("AUTH_SERVICE_GRPC_HOST")+":"+utils.EnvVar("AUTH_SERVICE_GRPC_PORT"), &authcreds),
 		kafkaProducer: kafkaProducer,
 		posts:         posts.CreatePostsService(clientsPostsShards, clientTagsShard),
+		cache:         cache.CreateRedisCacheService(),
 	}
 }
 
@@ -95,6 +98,10 @@ func (s *Services) Shutdown() error {
 	if err != nil {
 		result = append(result, err)
 	}
+	err = s.cache.Shutdown()
+	if err != nil {
+		result = append(result, err)
+	}
 	if len(result) > 0 {
 		return fmt.Errorf("errors during shutdown: %v", result)
 	}
@@ -111,4 +118,8 @@ func (s *Services) KafkaProducer() *kafka.KafkaProducerService {
 
 func (s *Services) Posts() *posts.PostsService {
 	return s.posts
+}
+
+func (s *Services) Cache() *cache.RedisCacheService {
+	return s.cache
 }
