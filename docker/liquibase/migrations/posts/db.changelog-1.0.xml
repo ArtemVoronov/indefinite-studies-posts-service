@@ -75,7 +75,6 @@
         <sql dbms="postgresql">
             CREATE INDEX posts_uuid_b_tree_index ON posts (uuid);
         </sql>
-        <addUniqueConstraint tableName="comments" columnNames="post_uuid" constraintName="comments_post_uuid_unique" />
         <sql dbms="postgresql">
             CREATE INDEX comments_post_uuid_b_tree_index ON comments (post_uuid);
         </sql>
