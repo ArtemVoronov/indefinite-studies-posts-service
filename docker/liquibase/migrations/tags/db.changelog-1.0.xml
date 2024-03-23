@@ -10,7 +10,7 @@
 
     <changeSet id="1" author="voronov">
         <createTable tableName="tags">
-            <column name="id" type="int" autoIncrement="true">
+            <column name="id" type="bigserial" autoIncrement="true">
                 <constraints primaryKey="true" nullable="false"/>
             </column>
             <column name="name" type="varchar(256)">
