@@ -20,6 +20,7 @@ import (
 
 const NewCommentsTopic = "new_comments"
 const UpdatedCommentsStatesTopic = "updated_comments_states"
+const DeletedCommentsTopic = "deleted_comments"
 
 // TODO: implement later
 // func GetComments(c *gin.Context) {
@@ -210,6 +211,16 @@ func UpdateComment(c *gin.Context) {
 
 	log.Info(fmt.Sprintf("Updated comment: %v", dto))
 
+	if dto.State != nil {
+		comment, err := services.Instance().Posts().GetComment(dto.PostUuid, dto.CommentId)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, "Unable to create comment")
+			log.Error("Unable to get comment after creation", err.Error())
+		} else {
+			sendCommentToKafkaQueue(comment, UpdatedCommentsStatesTopic)
+		}
+	}
+
 	c.JSON(http.StatusOK, api.DONE)
 }
 
@@ -234,6 +245,8 @@ func DeleteComment(c *gin.Context) {
 
 	log.Info(fmt.Sprintf("Deleted comment. Post UUID: %v. Comment ID: %v", dto.PostUuid, dto.CommentId))
 
+	sendDeletedCommentToKafkaQueue(dto.PostUuid, dto.CommentId, DeletedCommentsTopic)
+
 	c.JSON(http.StatusOK, api.DONE)
 }
 
@@ -251,7 +264,22 @@ func sendCommentToKafkaQueue(comment entities.Comment, queueTopics ...string) {
 	commentJSON, err := json.Marshal(commentForQueue)
 	if err != nil {
 		// TODO: create some daemon that catch unpublished posts
-		log.Error(fmt.Sprintf("Unable to convert comment with id '%v' to JSON", comment.Id), err.Error())
+		log.Error(fmt.Sprintf("Unable to convert comment '%v' to JSON", commentForQueue), err.Error())
+	}
+	for _, queueTopic := range queueTopics {
+		services.SendMessageToKafkaQueue(queueTopic, string(commentJSON))
+	}
+}
+
+func sendDeletedCommentToKafkaQueue(postUuid string, commentId int, queueTopics ...string) {
+	commentForQueue := entities.DeletedCommentForQueue{
+		PostUuid:  postUuid,
+		CommentId: commentId,
+	}
+	commentJSON, err := json.Marshal(commentForQueue)
+	if err != nil {
+		// TODO: create some daemon that catch unpublished posts
+		log.Error(fmt.Sprintf("Unable to convert comment '%v' to JSON", commentForQueue), err.Error())
 	}
 	for _, queueTopic := range queueTopics {
 		services.SendMessageToKafkaQueue(queueTopic, string(commentJSON))

@@ -19,3 +19,8 @@ type CommentForQueue struct {
 	CreateDate time.Time
 	State      string
 }
+
+type DeletedCommentForQueue struct {
+	PostUuid  string
+	CommentId int
+}
