@@ -24,107 +24,11 @@ const UpdatedPostsTagsTopic = "updated_posts_tags"
 const DeletedPostsTopic = "deleted_posts"
 
 func GetPost(c *gin.Context) {
-	postUuid := c.Param("uuid")
-
-	if postUuid == "" {
-		c.JSON(http.StatusBadRequest, "Missed 'uuid' param")
-		return
-	}
-
-	cached, err := getFromCache(postUuid)
-	if err != nil {
-		log.Error("Unable to read cache", err.Error())
-	}
-	if len(cached) > 0 {
-		result, err := toPost(cached)
-		if err != nil {
-			log.Error("Unable to read cache", err.Error())
-		} else {
-			c.JSON(http.StatusOK, result)
-			return
-		}
-	}
-
-	post, err := services.Instance().Posts().GetPostWithTags(postUuid)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
-		} else {
-			c.JSON(http.StatusInternalServerError, "Unable to get post")
-			log.Error("Unable to get post", err.Error())
-		}
-		return
-	}
-
-	convertedPost := convertPost(post)
-	postJSON, err := json.Marshal(convertedPost)
-	if err != nil {
-		// TODO: create some daemon that catch unpublished posts
-		log.Error(fmt.Sprintf("Unable to convert post with uuid '%v' to JSON", post.Post.Uuid), err.Error())
-	}
-
-	result := string(postJSON)
-
-	if convertedPost.State == utilsEntities.POST_STATE_PUBLISHED {
-		err = putToCache(post.Post.Uuid, result)
-		if err != nil {
-			log.Error("Unable to put post into the cache", err.Error())
-		}
-	}
-
-	c.JSON(http.StatusOK, convertedPost)
+	getPost(c, false)
 }
 
 func GetPostPreview(c *gin.Context) {
-	postUuid := c.Param("uuid")
-
-	if postUuid == "" {
-		c.JSON(http.StatusBadRequest, "Missed 'uuid' param")
-		return
-	}
-
-	cached, err := getFromCache(postUuid)
-	if err != nil {
-		log.Error("Unable to read cache", err.Error())
-	}
-	if len(cached) > 0 {
-		result, err := toPost(cached)
-		if err != nil {
-			log.Error("Unable to read cache", err.Error())
-		} else {
-			c.JSON(http.StatusOK, result)
-			return
-		}
-	}
-
-	post, err := services.Instance().Posts().GetPostWithTags(postUuid)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
-		} else {
-			c.JSON(http.StatusInternalServerError, "Unable to get post preview")
-			log.Error("Unable to get post preview", err.Error())
-		}
-		return
-	}
-
-	convertedPostPreview := convertPostPreview(post)
-	postJSON, err := json.Marshal(convertedPostPreview)
-	if err != nil {
-		// TODO: create some daemon that catch unpublished posts
-		log.Error(fmt.Sprintf("Unable to convert post with uuid '%v' to JSON", post.Post.Uuid), err.Error())
-	}
-
-	result := string(postJSON)
-
-	if convertedPostPreview.State == utilsEntities.POST_STATE_PUBLISHED {
-		err = putToCache(post.Post.Uuid, result)
-		if err != nil {
-			log.Error("Unable to put post into the cache", err.Error())
-		}
-	}
-
-	c.JSON(http.StatusOK, convertedPostPreview)
+	getPost(c, true)
 }
 
 func CreatePost(c *gin.Context) {
@@ -277,6 +181,65 @@ func DeletePost(c *gin.Context) {
 	log.Info(fmt.Sprintf("Deleted post. Uuid: %v", post.Uuid))
 
 	c.JSON(http.StatusOK, api.DONE)
+}
+
+func getPost(c *gin.Context, isPreview bool) {
+	postUuid := c.Param("uuid")
+
+	if postUuid == "" {
+		c.JSON(http.StatusBadRequest, "Missed 'uuid' param")
+		return
+	}
+
+	cached, err := getFromCache(postUuid)
+	if err != nil {
+		log.Error("Unable to read cache", err.Error())
+	}
+	if len(cached) > 0 {
+		result, err := toPost(cached)
+		if err != nil {
+			log.Error("Unable to read cache", err.Error())
+		} else {
+			c.JSON(http.StatusOK, result)
+			return
+		}
+	}
+
+	post, err := services.Instance().Posts().GetPostWithTags(postUuid)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
+		} else {
+			c.JSON(http.StatusInternalServerError, "Unable to get post")
+			log.Error("Unable to get post", err.Error())
+		}
+		return
+	}
+
+	var convertedPost PostDTO
+
+	if isPreview {
+		convertedPost = convertPostPreview(post)
+	} else {
+		convertedPost = convertPost(post)
+	}
+
+	postJSON, err := json.Marshal(convertedPost)
+	if err != nil {
+		// TODO: create some daemon that catch unpublished posts
+		log.Error(fmt.Sprintf("Unable to convert post with uuid '%v' to JSON", post.Post.Uuid), err.Error())
+	}
+
+	result := string(postJSON)
+
+	if convertedPost.State == utilsEntities.POST_STATE_PUBLISHED {
+		err = putToCache(post.Post.Uuid, result)
+		if err != nil {
+			log.Error("Unable to put post into the cache", err.Error())
+		}
+	}
+
+	c.JSON(http.StatusOK, convertedPost)
 }
 
 func getFromCache(key string) (string, error) {
