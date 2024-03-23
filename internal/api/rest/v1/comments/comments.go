@@ -2,6 +2,7 @@ package comments
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -15,45 +16,113 @@ import (
 	utilsEntities "github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/db/entities"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/utils"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
-func GetComments(c *gin.Context) {
+const NewCommentsTopic = "new_comments"
+const UpdatedCommentsStatesTopic = "updated_comments_states"
+
+// TODO: implement later
+// func GetComments(c *gin.Context) {
+// 	postUuid := c.Param("uuid")
+
+// 	if postUuid == "" {
+// 		c.JSON(http.StatusBadRequest, "Missed 'uuid' parameter")
+// 		return
+// 	}
+
+// 	limitStr := c.DefaultQuery("limit", "50")
+// 	offsetStr := c.DefaultQuery("offset", "0")
+
+// 	limit, err := strconv.Atoi(limitStr)
+// 	if err != nil {
+// 		limit = 50
+// 	}
+
+// 	offset, err := strconv.Atoi(offsetStr)
+// 	if err != nil {
+// 		offset = 0
+// 	}
+
+// 	comments, err := services.Instance().Posts().GetComments(postUuid, offset, limit)
+// 	if err != nil {
+// 		c.JSON(http.StatusInternalServerError, "Unable to get comments")
+// 		log.Error("Unable to get comments", err.Error())
+// 		return
+// 	}
+
+// 	result := &CommentListDTO{
+// 		Data:   convertComments(comments, postUuid),
+// 		Count:  len(comments),
+// 		Offset: offset,
+// 		Limit:  limit,
+// 	}
+
+// 	c.JSON(http.StatusOK, result)
+// }
+
+func GetComment(c *gin.Context) {
 	postUuid := c.Param("uuid")
+	commentIdStr := c.Param("id")
 
 	if postUuid == "" {
 		c.JSON(http.StatusBadRequest, "Missed 'uuid' parameter")
 		return
 	}
 
-	limitStr := c.DefaultQuery("limit", "50")
-	offsetStr := c.DefaultQuery("offset", "0")
-
-	limit, err := strconv.Atoi(limitStr)
-	if err != nil {
-		limit = 50
-	}
-
-	offset, err := strconv.Atoi(offsetStr)
-	if err != nil {
-		offset = 0
-	}
-
-	comments, err := services.Instance().Posts().GetComments(postUuid, offset, limit)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, "Unable to get comments")
-		log.Error("Unable to get comments", err.Error())
+	if commentIdStr == "" {
+		c.JSON(http.StatusBadRequest, "Missed 'id' parameter")
 		return
 	}
 
-	result := &CommentListDTO{
-		Data:   convertComments(comments, postUuid),
-		Count:  len(comments),
-		Offset: offset,
-		Limit:  limit,
+	commentId, err := strconv.Atoi(commentIdStr)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, "Unable to parse comment id")
+		return
 	}
 
-	c.JSON(http.StatusOK, result)
+	cached, err := services.GetFromCache(buildCacheKey(postUuid, commentIdStr))
+	if err != nil {
+		log.Error("Unable to read cache", err.Error())
+	}
+	if len(cached) > 0 {
+		result, err := toComment(cached)
+		if err != nil {
+			log.Error("Unable to read cache", err.Error())
+		} else {
+			c.JSON(http.StatusOK, result)
+			return
+		}
+	}
+
+	comment, err := services.Instance().Posts().GetComment(postUuid, commentId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
+		} else {
+			c.JSON(http.StatusInternalServerError, "Unable to get comment")
+			log.Error("Unable to get comment", err.Error())
+		}
+		return
+	}
+
+	convertedComment := convertComment(comment)
+
+	commentJSON, err := json.Marshal(convertedComment)
+	if err != nil {
+		// TODO: create some daemon that catch unpublished posts
+		log.Error(fmt.Sprintf("Unable to convert comment with post uuid '%v' and id '%v' to JSON", postUuid, commentIdStr), err.Error())
+	}
+
+	result := string(commentJSON)
+
+	if convertedComment.State == utilsEntities.COMMENT_STATE_PUBLISHED {
+		err = services.PutToCache(buildCacheKey(postUuid, commentIdStr), result)
+		if err != nil {
+			log.Error("Unable to put post into the cache", err.Error())
+		}
+	}
+
+	c.JSON(http.StatusOK, convertedComment)
 }
 
 func CreateComment(c *gin.Context) {
@@ -64,26 +133,37 @@ func CreateComment(c *gin.Context) {
 		return
 	}
 
-	uuid, err := uuid.NewRandom()
+	post, err := services.Instance().Posts().GetPost(dto.PostUuid)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, "Unable to create comment")
-		log.Error("unable to create uuid for comment", err.Error())
+		c.JSON(http.StatusInternalServerError, "Unable to get post")
+		log.Error("Unable to get post", err.Error())
 		return
 	}
-	commentUuid := uuid.String()
 
-	commentId, err := services.Instance().Posts().CreateComment(dto.PostUuid, commentUuid, dto.AuthorUuid, dto.Text, dto.LinkedCommentUuid)
+	if post.State != utilsEntities.POST_STATE_PUBLISHED {
+		c.JSON(http.StatusBadRequest, "Unable to create post. Post is not published")
+		return
+	}
+
+	commentId, err := services.Instance().Posts().CreateComment(dto.PostUuid, dto.AuthorUuid, dto.Text, dto.LinkedCommentId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to create comment")
 		log.Error("Unable to create comment", err.Error())
 		return
 	}
 
-	log.Info(fmt.Sprintf("Created comment. Id: %v. Uuid: %v", commentId, commentUuid))
+	log.Info(fmt.Sprintf("Created comment. ID: %v. Post UUID: %v", commentId, dto.PostUuid))
 
-	// TODO: possible need specific queue for new comments in future, for autoloading new comments at UI
+	comment, err := services.Instance().Posts().GetComment(dto.PostUuid, commentId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, "Unable to create comment")
+		log.Error("Unable to get comment after creation", err.Error())
+		return
+	}
 
-	c.JSON(http.StatusCreated, commentUuid)
+	sendCommentToKafkaQueue(comment, NewCommentsTopic)
+
+	c.JSON(http.StatusCreated, commentId)
 }
 
 func UpdateComment(c *gin.Context) {
@@ -157,17 +237,54 @@ func DeleteComment(c *gin.Context) {
 	c.JSON(http.StatusOK, api.DONE)
 }
 
-func convertComments(comments []entities.Comment, postUuid string) []CommentDTO {
+func buildCacheKey(postUuid string, commentId string) string {
+	return fmt.Sprintf("post_%v_comment_%v", postUuid, commentId)
+}
+
+func sendCommentToKafkaQueue(comment entities.Comment, queueTopics ...string) {
+	commentForQueue := entities.CommentForQueue{
+		PostUuid:   comment.PostUuid,
+		CommentId:  comment.Id,
+		CreateDate: comment.CreateDate,
+		State:      comment.State,
+	}
+	commentJSON, err := json.Marshal(commentForQueue)
+	if err != nil {
+		// TODO: create some daemon that catch unpublished posts
+		log.Error(fmt.Sprintf("Unable to convert comment with id '%v' to JSON", comment.Id), err.Error())
+	}
+	for _, queueTopic := range queueTopics {
+		services.SendMessageToKafkaQueue(queueTopic, string(commentJSON))
+	}
+}
+
+func toComment(jsonStr string) (CommentDTO, error) {
+	var result CommentDTO
+	err := json.Unmarshal([]byte(jsonStr), &result)
+	if err != nil {
+		return result, fmt.Errorf("unable to unmarshal comment: %v", err)
+	}
+	return result, nil
+}
+
+func convertComments(comments []entities.Comment) []CommentDTO {
 	if comments == nil {
 		return make([]CommentDTO, 0)
 	}
 	var result []CommentDTO
 	for _, comment := range comments {
-		result = append(result, convertComment(comment, postUuid))
+		result = append(result, convertComment(comment))
 	}
 	return result
 }
 
-func convertComment(comment entities.Comment, postUuid string) CommentDTO {
-	return CommentDTO{Id: comment.Id, AuthorUuid: comment.AuthorUuid, PostUuid: postUuid, LinkedCommentUuid: comment.LinkedCommentUuid, Text: comment.Text, State: comment.State}
+func convertComment(comment entities.Comment) CommentDTO {
+	return CommentDTO{
+		Id:              comment.Id,
+		AuthorUuid:      comment.AuthorUuid,
+		PostUuid:        comment.PostUuid,
+		LinkedCommentId: comment.LinkedCommentId,
+		Text:            comment.Text,
+		State:           comment.State,
+	}
 }

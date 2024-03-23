@@ -171,19 +171,14 @@ func (s *PostsService) GetPosts(offset int, limit int, shard int) ([]entities.Po
 	return posts, nil
 }
 
-func (s *PostsService) CreateComment(postUuid string, commentUuid string, authorUuid string, text string, linkedCommentUuid string) (int, error) {
+func (s *PostsService) CreateComment(postUuid string, authorUuid string, text string, linkedCommentId *int) (int, error) {
 	var commentId int = -1
 	data, err := s.getClientPostsShard(postUuid).Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
-		post, err := queries.GetPost(tx, ctx, postUuid)
-		if err != nil {
-			return nil, err
-		}
 		params := &queries.CreateCommentParams{
-			Uuid:              commentUuid,
-			AuthorUuid:        authorUuid,
-			PostId:            post.Id,
-			LinkedCommentUuid: linkedCommentUuid,
-			Text:              text,
+			AuthorUuid:      authorUuid,
+			PostUuid:        postUuid,
+			LinkedCommentId: linkedCommentId,
+			Text:            text,
 		}
 
 		result, err := queries.CreateComment(tx, ctx, params)
@@ -241,12 +236,7 @@ func (s *PostsService) GetComment(postUuid string, commentId int) (entities.Comm
 
 func (s *PostsService) GetComments(postUuid string, offset int, limit int) ([]entities.Comment, error) {
 	data, err := s.getClientPostsShard(postUuid).Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
-		post, err := queries.GetPost(tx, ctx, postUuid)
-		if err != nil {
-			return nil, err
-		}
-
-		comments, err := queries.GetComments(tx, ctx, post.Id, limit, offset)
+		comments, err := queries.GetComments(tx, ctx, postUuid, limit, offset)
 		return comments, err
 	})()
 	if err != nil {

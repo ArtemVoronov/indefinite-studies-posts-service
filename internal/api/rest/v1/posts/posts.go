@@ -176,7 +176,7 @@ func DeletePost(c *gin.Context) {
 		return
 	}
 
-	sendMessageToKafkaQueue(DeletedPostsTopic, post.Uuid)
+	services.SendMessageToKafkaQueue(DeletedPostsTopic, post.Uuid)
 
 	log.Info(fmt.Sprintf("Deleted post. Uuid: %v", post.Uuid))
 
@@ -191,7 +191,7 @@ func getPost(c *gin.Context, isPreview bool) {
 		return
 	}
 
-	cached, err := getFromCache(postUuid)
+	cached, err := services.GetFromCache(buildCacheKey(postUuid, isPreview))
 	if err != nil {
 		log.Error("Unable to read cache", err.Error())
 	}
@@ -233,7 +233,7 @@ func getPost(c *gin.Context, isPreview bool) {
 	result := string(postJSON)
 
 	if convertedPost.State == utilsEntities.POST_STATE_PUBLISHED {
-		err = putToCache(post.Post.Uuid, result)
+		err = services.PutToCache(buildCacheKey(post.Post.Uuid, isPreview), result)
 		if err != nil {
 			log.Error("Unable to put post into the cache", err.Error())
 		}
@@ -242,22 +242,20 @@ func getPost(c *gin.Context, isPreview bool) {
 	c.JSON(http.StatusOK, convertedPost)
 }
 
-func getFromCache(key string) (string, error) {
-	return services.Instance().Cache().Get(key)
-}
-
-func putToCache(key, value string) error {
-	cache := services.Instance().Cache()
-	return cache.Set(key, value, cache.PostsTTL)
+func buildCacheKey(postUuid string, isPreview bool) string {
+	if isPreview {
+		return fmt.Sprintf("post_preview_%v", postUuid)
+	}
+	return fmt.Sprintf("post_%v", postUuid)
 }
 
 func toPost(jsonStr string) (PostDTO, error) {
-	var post PostDTO
-	err := json.Unmarshal([]byte(jsonStr), &post)
+	var result PostDTO
+	err := json.Unmarshal([]byte(jsonStr), &result)
 	if err != nil {
-		return post, fmt.Errorf("unable to unmarshal post: %v", err)
+		return result, fmt.Errorf("unable to unmarshal post: %v", err)
 	}
-	return post, nil
+	return result, nil
 }
 
 func sendPostToKafkaQueue(post entities.PostWithTags, queueTopics ...string) {
@@ -274,15 +272,7 @@ func sendPostToKafkaQueue(post entities.PostWithTags, queueTopics ...string) {
 		log.Error(fmt.Sprintf("Unable to convert post with uuid '%v' to JSON", post.Post.Uuid), err.Error())
 	}
 	for _, queueTopic := range queueTopics {
-		sendMessageToKafkaQueue(queueTopic, string(postJSON))
-	}
-}
-
-func sendMessageToKafkaQueue(queueTopic string, message string) {
-	err := services.Instance().KafkaProducer().CreateMessage(queueTopic, message)
-	if err != nil {
-		// TODO: create some daemon that catch unpublished posts
-		log.Error(fmt.Sprintf("Unable to put message '%v' into queue '%v'", message, queueTopic), err.Error())
+		services.SendMessageToKafkaQueue(queueTopic, string(postJSON))
 	}
 }
 

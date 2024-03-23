@@ -14,7 +14,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// TODO: remove unused posts calls
 type PostsServiceServer struct {
 	posts.UnimplementedPostsServiceServer
 }
@@ -35,14 +34,6 @@ func (s *PostsServiceServer) GetPost(ctx context.Context, in *posts.GetPostReque
 	return toGetPostReply(post), nil
 }
 
-func (s *PostsServiceServer) GetPosts(ctx context.Context, in *posts.GetPostsRequest) (*posts.GetPostsReply, error) {
-	return nil, fmt.Errorf("NOT IMPLEMENTED")
-}
-
-func (s *PostsServiceServer) GetPostsStream(stream posts.PostsService_GetPostsStreamServer) error {
-	return fmt.Errorf("NOT IMPLEMENTED")
-}
-
 func (s *PostsServiceServer) GetComment(ctx context.Context, in *posts.GetCommentRequest) (*posts.GetCommentReply, error) {
 	comment, err := services.Instance().Posts().GetComment(in.GetPostUuid(), int(in.GetId()))
 	if err != nil {
@@ -53,34 +44,6 @@ func (s *PostsServiceServer) GetComment(ctx context.Context, in *posts.GetCommen
 		}
 	}
 	return toGetCommentReply(comment, in.GetPostUuid()), nil
-}
-
-func (s *PostsServiceServer) GetComments(ctx context.Context, in *posts.GetCommentsRequest) (*posts.GetCommentsReply, error) {
-	var commentsList []entities.Comment
-	var err error
-
-	commentsList, err = services.Instance().Posts().GetComments(in.GetPostUuid(), int(in.GetOffset()), int(in.GetLimit()))
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf(api.PAGE_NOT_FOUND)
-		} else {
-			return nil, err
-		}
-	}
-
-	result := &posts.GetCommentsReply{
-		Offset:   in.Offset,
-		Limit:    in.Limit,
-		Count:    int32(len(commentsList)),
-		Comments: toGetCommentReplies(commentsList, in.GetPostUuid()),
-	}
-
-	return result, nil
-}
-
-func (s *PostsServiceServer) GetCommentsStream(stream posts.PostsService_GetCommentsStreamServer) error {
-	return fmt.Errorf("NOT IMPLEMENTED")
 }
 
 func (s *PostsServiceServer) GetTag(ctx context.Context, in *posts.GetTagRequest) (*posts.GetTagReply, error) {
@@ -129,7 +92,7 @@ func toGetPostReply(post entities.PostWithTags) *posts.GetPostReply {
 		State:          post.Post.State,
 		CreateDate:     timestamppb.New(post.Post.CreateDate),
 		LastUpdateDate: timestamppb.New(post.Post.LastUpdateDate),
-		TagIds:         utils.ToInt32(post.TagIds),
+		TagIds:         utils.ToInt64(post.TagIds),
 	}
 }
 
@@ -143,16 +106,20 @@ func toGetPostReplies(input []entities.PostWithTags) []*posts.GetPostReply {
 }
 
 func toGetCommentReply(comment entities.Comment, postUuid string) *posts.GetCommentReply {
+	// TODO: fix linked comment id type at protobuf (to int64)
+	linkedCommentId := ""
+	if comment.LinkedCommentId != nil {
+		linkedCommentId = fmt.Sprintf("%v", *comment.LinkedCommentId)
+	}
 	return &posts.GetCommentReply{
-		Id:                int32(comment.Id),
-		Uuid:              comment.Uuid,
-		AuthorUuid:        comment.AuthorUuid,
-		PostUuid:          postUuid,
-		LinkedCommentUuid: comment.LinkedCommentUuid,
-		Text:              comment.Text,
-		State:             comment.State,
-		CreateDate:        timestamppb.New(comment.CreateDate),
-		LastUpdateDate:    timestamppb.New(comment.LastUpdateDate),
+		Id:              int64(comment.Id),
+		AuthorUuid:      comment.AuthorUuid,
+		PostUuid:        postUuid,
+		LinkedCommentId: linkedCommentId,
+		Text:            comment.Text,
+		State:           comment.State,
+		CreateDate:      timestamppb.New(comment.CreateDate),
+		LastUpdateDate:  timestamppb.New(comment.LastUpdateDate),
 	}
 }
 
@@ -167,7 +134,7 @@ func toGetCommentReplies(input []entities.Comment, postUuid string) []*posts.Get
 
 func toGetTagReply(tag entities.Tag) *posts.GetTagReply {
 	return &posts.GetTagReply{
-		Id:   int32(tag.Id),
+		Id:   int64(tag.Id),
 		Name: tag.Name,
 	}
 }

@@ -1,13 +1,12 @@
 package comments
 
 type CommentDTO struct {
-	Id                int
-	Uuid              string
-	AuthorUuid        string
-	PostUuid          string
-	LinkedCommentUuid string
-	Text              string
-	State             string
+	Id              int
+	AuthorUuid      string
+	PostUuid        string
+	LinkedCommentId *int `json:"LinkedCommentId,omitempty"`
+	Text            string
+	State           string
 }
 
 type CommentListDTO struct {
@@ -18,23 +17,21 @@ type CommentListDTO struct {
 }
 
 type CommentEditDTO struct {
-	CommentId   int     `json:"CommentId" binding:"required"`
-	CommentUuid string  `json:"CommentUuid" binding:"required"`
-	PostUuid    string  `json:"PostUuid" binding:"required"`
-	Text        *string `json:"Text,omitempty"`
-	State       *string `json:"State,omitempty"`
-	AuthorUuid  string  `json:"AuthorUuid" binding:"required"`
+	CommentId  int     `json:"CommentId" binding:"required"`
+	PostUuid   string  `json:"PostUuid" binding:"required"`
+	Text       *string `json:"Text,omitempty"`
+	State      *string `json:"State,omitempty"`
+	AuthorUuid string  `json:"AuthorUuid" binding:"required"`
 }
 
 type CommentCreateDTO struct {
-	AuthorUuid        string `json:"AuthorUuid" binding:"required"`
-	PostUuid          string `json:"PostUuid" binding:"required"`
-	Text              string `json:"Text" binding:"required"`
-	LinkedCommentUuid string `json:"LinkedCommentUuid,omitempty"`
+	AuthorUuid      string `json:"AuthorUuid" binding:"required"`
+	PostUuid        string `json:"PostUuid" binding:"required"`
+	Text            string `json:"Text" binding:"required"`
+	LinkedCommentId *int   `json:"LinkedCommentId,omitempty"`
 }
 
 type CommentDeleteDTO struct {
-	CommentId   int    `json:"CommentId" binding:"required"`
-	CommentUuid string `json:"CommentUuid" binding:"required"`
-	PostUuid    string `json:"PostId" binding:"required"`
+	CommentId int    `json:"CommentId" binding:"required"`
+	PostUuid  string `json:"PostId" binding:"required"`
 }

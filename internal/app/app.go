@@ -58,7 +58,7 @@ func createRestApi(logger *logrus.Logger) *gin.Engine {
 
 	v1.GET("/posts/ping", ping.Ping)
 	v1.GET("/posts/:uuid", postsRestApi.GetPost)
-	v1.GET("/posts/:uuid/comments", commentsRestApi.GetComments)
+	v1.GET("/posts/:uuid/comments/:id", commentsRestApi.GetComment)
 	v1.GET("/posts/tags", tagsRestApi.GetTags)
 	v1.GET("/posts/tags/:id", tagsRestApi.GetTag)
 
