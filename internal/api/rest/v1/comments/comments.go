@@ -170,16 +170,31 @@ func UpdateComment(c *gin.Context) {
 		return
 	}
 
-	if !app.IsSameUser(c, dto.AuthorUuid) && !app.HasOwnerRole(c) {
+	comment, err := services.Instance().Posts().GetComment(dto.PostUuid, dto.CommentId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
+		} else {
+			c.JSON(http.StatusInternalServerError, "Unable to get comment")
+			log.Error("Unable to get comment", err.Error())
+		}
+		return
+	}
+
+	isAllowToUpdateComment := (comment.State == utilsEntities.COMMENT_STATE_NEW && app.IsSameUser(c, comment.AuthorUuid)) || app.HasOwnerRole(c)
+
+	if !isAllowToUpdateComment {
 		c.JSON(http.StatusForbidden, "Forbidden")
-		log.Info(fmt.Sprintf("Forbidden to update comment. Author UUID: %v", dto.AuthorUuid))
+		userUuidFromCtx, _ := c.Get(app.CTX_TOKEN_ID_KEY)
+		log.Info(fmt.Sprintf("Forbidden to update comment. User UUID: %v", userUuidFromCtx))
 		return
 	}
 
 	if dto.State != nil {
 		if !app.HasOwnerRole(c) {
 			c.JSON(http.StatusForbidden, "Forbidden")
-			log.Info(fmt.Sprintf("Forbidden to update comment state. Author UUID: %v", dto.AuthorUuid))
+			userUuidFromCtx, _ := c.Get(app.CTX_TOKEN_ID_KEY)
+			log.Info(fmt.Sprintf("Forbidden to update comment state. User UUID: %v", userUuidFromCtx))
 			return
 		}
 		if *dto.State == utilsEntities.COMMENT_STATE_DELETED {
@@ -194,7 +209,7 @@ func UpdateComment(c *gin.Context) {
 		}
 	}
 
-	err := services.Instance().Posts().UpdateComment(dto.PostUuid, dto.CommentId, dto.Text, dto.State)
+	err = services.Instance().Posts().UpdateComment(dto.PostUuid, dto.CommentId, dto.Text, dto.State)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
