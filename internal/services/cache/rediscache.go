@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -39,6 +40,14 @@ func (s *RedisCacheService) Get(key string) (string, error) {
 	data, err := s.redisService.WithTimeout(func(cli *redis.Client, ctx context.Context, cancel context.CancelFunc) (any, error) {
 		return cli.Get(ctx, key).Result()
 	})()
+
+	if err != nil && errors.Is(err, redis.Nil) {
+		return "", nil
+	}
+
+	if err != nil {
+		return "", err
+	}
 
 	result, ok := data.(string)
 	if !ok {

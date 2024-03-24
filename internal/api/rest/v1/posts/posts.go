@@ -191,18 +191,13 @@ func getPost(c *gin.Context, isPreview bool) {
 		return
 	}
 
-	cached, err := services.GetFromCache(buildCacheKey(postUuid, isPreview))
+	cached, err := getPostFromCache(postUuid, isPreview)
 	if err != nil {
 		log.Error("Unable to read cache", err.Error())
 	}
-	if len(cached) > 0 {
-		result, err := toPost(cached)
-		if err != nil {
-			log.Error("Unable to read cache", err.Error())
-		} else {
-			c.JSON(http.StatusOK, result)
-			return
-		}
+	if cached != nil {
+		c.JSON(http.StatusOK, cached)
+		return
 	}
 
 	post, err := services.Instance().Posts().GetPostWithTags(postUuid)
@@ -242,6 +237,38 @@ func getPost(c *gin.Context, isPreview bool) {
 	c.JSON(http.StatusOK, convertedPost)
 }
 
+func IsPostPublished(postUuid string) (bool, error) {
+	cached, err := getPostFromCache(postUuid, false)
+	if err != nil {
+		log.Error("Unable to read cache", err.Error())
+	}
+	if cached != nil {
+		return cached.State == utilsEntities.POST_STATE_PUBLISHED, nil
+	}
+	post, err := services.Instance().Posts().GetPost(postUuid)
+	if err != nil {
+		log.Error("Unable to get post", err.Error())
+		return false, err
+	}
+	return post.State == utilsEntities.POST_STATE_PUBLISHED, nil
+}
+
+func getPostFromCache(postUuid string, isPreview bool) (*PostDTO, error) {
+	cached, err := services.GetFromCache(buildCacheKey(postUuid, isPreview))
+	if err != nil {
+		return nil, err
+	}
+	if len(cached) > 0 {
+		result, err := toPost(cached)
+		if err != nil {
+			return nil, err
+		} else {
+			return result, nil
+		}
+	}
+	return nil, nil
+}
+
 func buildCacheKey(postUuid string, isPreview bool) string {
 	if isPreview {
 		return fmt.Sprintf("post_preview_%v", postUuid)
@@ -249,8 +276,8 @@ func buildCacheKey(postUuid string, isPreview bool) string {
 	return fmt.Sprintf("post_%v", postUuid)
 }
 
-func toPost(jsonStr string) (PostDTO, error) {
-	var result PostDTO
+func toPost(jsonStr string) (*PostDTO, error) {
+	var result *PostDTO
 	err := json.Unmarshal([]byte(jsonStr), &result)
 	if err != nil {
 		return result, fmt.Errorf("unable to unmarshal post: %v", err)

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/api/rest/v1/posts"
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services"
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/entities"
 	"github.com/ArtemVoronov/indefinite-studies-utils/pkg/api"
@@ -81,18 +82,13 @@ func GetComment(c *gin.Context) {
 		return
 	}
 
-	cached, err := services.GetFromCache(buildCacheKey(postUuid, commentIdStr))
+	cached, err := getCommentFromCache(postUuid, commentIdStr)
 	if err != nil {
 		log.Error("Unable to read cache", err.Error())
 	}
-	if len(cached) > 0 {
-		result, err := toComment(cached)
-		if err != nil {
-			log.Error("Unable to read cache", err.Error())
-		} else {
-			c.JSON(http.StatusOK, result)
-			return
-		}
+	if cached != nil {
+		c.JSON(http.StatusOK, cached)
+		return
 	}
 
 	comment, err := services.Instance().Posts().GetComment(postUuid, commentId)
@@ -134,14 +130,14 @@ func CreateComment(c *gin.Context) {
 		return
 	}
 
-	post, err := services.Instance().Posts().GetPost(dto.PostUuid)
+	isPostPublished, err := posts.IsPostPublished(dto.PostUuid)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, "Unable to get post")
-		log.Error("Unable to get post", err.Error())
+		c.JSON(http.StatusInternalServerError, "Unable to verify post state")
+		log.Error("Unable to verify post state", err.Error())
 		return
 	}
 
-	if post.State != utilsEntities.POST_STATE_PUBLISHED {
+	if !isPostPublished {
 		c.JSON(http.StatusBadRequest, "Unable to create post. Post is not published")
 		return
 	}
@@ -250,6 +246,22 @@ func DeleteComment(c *gin.Context) {
 	c.JSON(http.StatusOK, api.DONE)
 }
 
+func getCommentFromCache(postUuid string, commentId string) (*CommentDTO, error) {
+	cached, err := services.GetFromCache(buildCacheKey(postUuid, commentId))
+	if err != nil {
+		return nil, err
+	}
+	if len(cached) > 0 {
+		result, err := toComment(cached)
+		if err != nil {
+			return nil, err
+		} else {
+			return result, nil
+		}
+	}
+	return nil, nil
+}
+
 func buildCacheKey(postUuid string, commentId string) string {
 	return fmt.Sprintf("post_%v_comment_%v", postUuid, commentId)
 }
@@ -286,8 +298,8 @@ func sendDeletedCommentToKafkaQueue(postUuid string, commentId int, queueTopics 
 	}
 }
 
-func toComment(jsonStr string) (CommentDTO, error) {
-	var result CommentDTO
+func toComment(jsonStr string) (*CommentDTO, error) {
+	var result *CommentDTO
 	err := json.Unmarshal([]byte(jsonStr), &result)
 	if err != nil {
 		return result, fmt.Errorf("unable to unmarshal comment: %v", err)
