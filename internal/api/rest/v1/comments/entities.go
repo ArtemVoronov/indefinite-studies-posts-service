@@ -1,5 +1,7 @@
 package comments
 
+import "time"
+
 type CommentDTO struct {
 	Id              int
 	AuthorUuid      string
@@ -7,6 +9,8 @@ type CommentDTO struct {
 	LinkedCommentId *int `json:"LinkedCommentId,omitempty"`
 	Text            string
 	State           string
+	CreateDate      time.Time
+	LastUpdateDate  time.Time
 }
 
 type CommentListDTO struct {

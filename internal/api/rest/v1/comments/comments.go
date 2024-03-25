@@ -341,5 +341,7 @@ func convertComment(comment entities.Comment) CommentDTO {
 		LinkedCommentId: comment.LinkedCommentId,
 		Text:            comment.Text,
 		State:           comment.State,
+		CreateDate:      comment.CreateDate,
+		LastUpdateDate:  comment.LastUpdateDate,
 	}
 }
