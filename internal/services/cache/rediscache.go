@@ -31,7 +31,7 @@ func (s *RedisCacheService) Shutdown() error {
 		result = append(result, err)
 	}
 	if len(result) > 0 {
-		return fmt.Errorf("errors during feed service shutdown: %v", result)
+		return errors.Join(result...)
 	}
 	return nil
 }

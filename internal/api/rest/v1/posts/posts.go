@@ -280,7 +280,7 @@ func toPost(jsonStr string) (*PostDTO, error) {
 	var result *PostDTO
 	err := json.Unmarshal([]byte(jsonStr), &result)
 	if err != nil {
-		return result, fmt.Errorf("unable to unmarshal post: %v", err)
+		return result, fmt.Errorf("unable to unmarshal post: %w", err)
 	}
 	return result, nil
 }

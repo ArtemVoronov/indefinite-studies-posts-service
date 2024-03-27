@@ -3,17 +3,14 @@ package queries
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
-	"regexp"
-	"strconv"
 	"time"
 
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/entities"
 	utilsEntities "github.com/ArtemVoronov/indefinite-studies-utils/pkg/services/db/entities"
 	"github.com/lib/pq"
 )
-
-var tagsRegexp = regexp.MustCompile(",")
 
 type CreatePostParams struct {
 	Uuid        interface{}
@@ -131,20 +128,20 @@ func GetPosts(tx *sql.Tx, ctx context.Context, limit int, offset int) ([]entitie
 
 	rows, err := tx.QueryContext(ctx, GET_POSTS_QUERY, limit, offset, utilsEntities.POST_STATE_DELETED)
 	if err != nil {
-		return posts, fmt.Errorf("error at loading posts, case after Query: %s", err)
+		return posts, fmt.Errorf("error at loading posts, case after Query: %w", err)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
 		err := rows.Scan(&id, &uuid, &authorUuid, &text, &previewText, &topic, &state, &createDate, &lastUpdateDate)
 		if err != nil {
-			return posts, fmt.Errorf("error at loading posts, case iterating and using rows.Scan: %s", err)
+			return posts, fmt.Errorf("error at loading posts, case iterating and using rows.Scan: %w", err)
 		}
 		posts = append(posts, entities.Post{Id: id, AuthorUuid: authorUuid, Uuid: uuid, Text: text, PreviewText: previewText, Topic: topic, State: state, CreateDate: createDate, LastUpdateDate: lastUpdateDate})
 	}
 	err = rows.Err()
 	if err != nil {
-		return posts, fmt.Errorf("error at loading posts, case after iterating: %s", err)
+		return posts, fmt.Errorf("error at loading posts, case after iterating: %w", err)
 	}
 
 	return posts, nil
@@ -165,20 +162,20 @@ func GetPostsByIds(tx *sql.Tx, ctx context.Context, ids []int, limit int, offset
 	)
 	rows, err := tx.QueryContext(ctx, GET_POSTS_BY_IDS_QUERY, pq.Array(ids), limit, offset, utilsEntities.POST_STATE_DELETED)
 	if err != nil {
-		return posts, fmt.Errorf("error at loading posts by ids, case after Query: %s", err)
+		return posts, fmt.Errorf("error at loading posts by ids, case after Query: %w", err)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
 		err := rows.Scan(&id, &authorUuid, &text, &previewText, &topic, &state, &createDate, &lastUpdateDate)
 		if err != nil {
-			return posts, fmt.Errorf("error at loading posts by ids, case iterating and using rows.Scan: %s", err)
+			return posts, fmt.Errorf("error at loading posts by ids, case iterating and using rows.Scan: %w", err)
 		}
 		posts = append(posts, entities.Post{Id: id, Uuid: uuid, AuthorUuid: authorUuid, Text: text, PreviewText: previewText, Topic: topic, State: state, CreateDate: createDate, LastUpdateDate: lastUpdateDate})
 	}
 	err = rows.Err()
 	if err != nil {
-		return posts, fmt.Errorf("error at loading posts by ids, case after iterating: %s", err)
+		return posts, fmt.Errorf("error at loading posts by ids, case after iterating: %w", err)
 	}
 
 	return posts, nil
@@ -189,12 +186,10 @@ func GetPost(tx *sql.Tx, ctx context.Context, uuid string) (entities.Post, error
 
 	err := tx.QueryRowContext(ctx, GET_POST_QUERY_BY_UUID, uuid, utilsEntities.POST_STATE_DELETED).
 		Scan(&post.Id, &post.Uuid, &post.AuthorUuid, &post.Text, &post.PreviewText, &post.Topic, &post.State, &post.CreateDate, &post.LastUpdateDate)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return post, err
-		} else {
-			return post, fmt.Errorf("error at loading post by uuid '%v' from db, case after QueryRow.Scan: %s", uuid, err)
-		}
+	if errors.Is(err, sql.ErrNoRows) {
+		return post, err
+	} else if err != nil {
+		return post, fmt.Errorf("error at loading post by uuid '%v' from db, case after QueryRow.Scan: %w", uuid, err)
 	}
 
 	return post, nil
@@ -207,7 +202,7 @@ func GetPostWithTagIds(tx *sql.Tx, ctx context.Context, uuid string) (entities.P
 		if err == sql.ErrNoRows {
 			return result, err
 		} else {
-			return result, fmt.Errorf("error at loading post by uuid '%v' from db, case after QueryRow.Scan: %s", uuid, err)
+			return result, fmt.Errorf("error at loading post by uuid '%v' from db, case after QueryRow.Scan: %w", uuid, err)
 		}
 	}
 	tagIds, err := GetTagIdsByPostId(tx, ctx, post.Id)
@@ -215,7 +210,7 @@ func GetPostWithTagIds(tx *sql.Tx, ctx context.Context, uuid string) (entities.P
 		if err == sql.ErrNoRows {
 			return result, err
 		} else {
-			return result, fmt.Errorf("error at loading post tags. Post uuid '%v'. Error: %s", uuid, err)
+			return result, fmt.Errorf("error at loading post tags. Post uuid '%v'. Error: %w", uuid, err)
 		}
 	}
 	result.Post = post
@@ -233,7 +228,7 @@ func CreatePost(tx *sql.Tx, ctx context.Context, params *CreatePostParams) (int,
 		params.Uuid, params.AuthorUuid, params.Text, params.PreviewText, params.Topic, utilsEntities.POST_STATE_NEW, createDate, lastUpdateDate).
 		Scan(&lastInsertId) // scan will release the connection
 	if err != nil {
-		return -1, fmt.Errorf("error at inserting post (Topic: '%v', AuthorUuid: '%v') into db, case after QueryRow.Scan: %s", params.Topic, params.AuthorUuid, err)
+		return -1, fmt.Errorf("error at inserting post (Topic: '%v', AuthorUuid: '%v') into db, case after QueryRow.Scan: %w", params.Topic, params.AuthorUuid, err)
 	}
 
 	return lastInsertId, nil
@@ -244,17 +239,17 @@ func UpdatePost(tx *sql.Tx, ctx context.Context, params *UpdatePostParams) error
 
 	stmt, err := tx.PrepareContext(ctx, UPDATE_POST_QUERY_BY_UUID)
 	if err != nil {
-		return fmt.Errorf("error at updating post, case after preparing statement: %s", err)
+		return fmt.Errorf("error at updating post, case after preparing statement: %w", err)
 	}
 	defer stmt.Close()
 	res, err := stmt.ExecContext(ctx, params.Uuid, params.AuthorUuid, params.Text, params.PreviewText, params.Topic, params.State, lastUpdateDate, utilsEntities.POST_STATE_DELETED)
 	if err != nil {
-		return fmt.Errorf("error at updating post (Uuid: %v, AuthorUuid: '%v'), case after executing statement: %s", params.Uuid, params.AuthorUuid, err)
+		return fmt.Errorf("error at updating post (Uuid: %v, AuthorUuid: '%v'), case after executing statement: %w", params.Uuid, params.AuthorUuid, err)
 	}
 
 	affectedRowsCount, err := res.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("error at updating post (Uuid: %v, AuthorUuid: '%v'), case after counting affected rows: %s", params.Uuid, params.AuthorUuid, err)
+		return fmt.Errorf("error at updating post (Uuid: %v, AuthorUuid: '%v'), case after counting affected rows: %w", params.Uuid, params.AuthorUuid, err)
 	}
 	if affectedRowsCount == 0 {
 		return sql.ErrNoRows
@@ -266,37 +261,19 @@ func UpdatePost(tx *sql.Tx, ctx context.Context, params *UpdatePostParams) error
 func DeletePost(tx *sql.Tx, ctx context.Context, uuid string) error {
 	stmt, err := tx.PrepareContext(ctx, DELETE_POST_QUERY_BY_UUID)
 	if err != nil {
-		return fmt.Errorf("error at deleting post, case after preparing statement: %s", err)
+		return fmt.Errorf("error at deleting post, case after preparing statement: %w", err)
 	}
 	defer stmt.Close()
 	res, err := stmt.ExecContext(ctx, uuid, utilsEntities.POST_STATE_DELETED)
 	if err != nil {
-		return fmt.Errorf("error at deleting post by Uuid '%v', case after executing statement: %s", uuid, err)
+		return fmt.Errorf("error at deleting post by Uuid '%v', case after executing statement: %w", uuid, err)
 	}
 	affectedRowsCount, err := res.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("error at deleting post by Uuid '%v', case after counting affected rows: %s", uuid, err)
+		return fmt.Errorf("error at deleting post by Uuid '%v', case after counting affected rows: %w", uuid, err)
 	}
 	if affectedRowsCount == 0 {
 		return sql.ErrNoRows
 	}
 	return nil
-}
-
-func convertTagsInt(input string) ([]int, error) {
-	resut := []int{}
-	if input == "{NULL}" {
-		return resut, nil
-	}
-
-	tokens := tagsRegexp.Split(input[1:len(input)-1], -1)
-	for _, token := range tokens {
-		id, err := strconv.Atoi(token)
-		if err != nil {
-			return nil, err
-		}
-		resut = append(resut, id)
-
-	}
-	return resut, nil
 }

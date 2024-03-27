@@ -3,6 +3,7 @@ package queries
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -67,12 +68,10 @@ func GetComment(tx *sql.Tx, ctx context.Context, id int) (entities.Comment, erro
 
 	err := tx.QueryRowContext(ctx, GET_COMMENT_QUERY, id, utilsEntities.COMMENT_STATE_DELETED).
 		Scan(&comment.Id, &comment.AuthorUuid, &comment.PostUuid, &comment.Text, &comment.LinkedCommentId, &comment.State, &comment.CreateDate, &comment.LastUpdateDate)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return comment, err
-		} else {
-			return comment, fmt.Errorf("error at loading comment by id '%v' from db, case after QueryRow.Scan: %s", id, err)
-		}
+	if errors.Is(err, sql.ErrNoRows) {
+		return comment, err
+	} else if err != nil {
+		return comment, fmt.Errorf("error at loading comment by id '%v' from db, case after QueryRow.Scan: %w", id, err)
 	}
 
 	return comment, nil
@@ -88,7 +87,7 @@ func CreateComment(tx *sql.Tx, ctx context.Context, params *CreateCommentParams)
 		params.AuthorUuid, params.PostUuid, params.Text, params.LinkedCommentId, utilsEntities.COMMENT_STATE_NEW, createDate, lastUpdateDate).
 		Scan(&lastInsertId) // scan will release the connection
 	if err != nil {
-		return -1, fmt.Errorf("error at inserting comment (PostUuid: '%v', AuthorUuid: '%v') into db, case after QueryRow.Scan: %s", params.PostUuid, params.AuthorUuid, err)
+		return -1, fmt.Errorf("error at inserting comment (PostUuid: '%v', AuthorUuid: '%v') into db, case after QueryRow.Scan: %w", params.PostUuid, params.AuthorUuid, err)
 	}
 
 	return lastInsertId, nil
@@ -99,17 +98,17 @@ func UpdateComment(tx *sql.Tx, ctx context.Context, params *UpdateCommentParams)
 
 	stmt, err := tx.PrepareContext(ctx, UPDATE_COMMENT_QUERY)
 	if err != nil {
-		return fmt.Errorf("error at updating comment, case after preparing statement: %s", err)
+		return fmt.Errorf("error at updating comment, case after preparing statement: %w", err)
 	}
 	defer stmt.Close()
 	res, err := stmt.ExecContext(ctx, params.Id, params.Text, params.State, lastUpdateDate, utilsEntities.COMMENT_STATE_DELETED)
 	if err != nil {
-		return fmt.Errorf("error at updating comment (Id: %v, AuthorUuid: '%v', PostId: '%v'), case after executing statement: %s", params.Id, params.AuthorUuid, params.PostId, err)
+		return fmt.Errorf("error at updating comment (Id: %v, AuthorUuid: '%v', PostId: '%v'), case after executing statement: %w", params.Id, params.AuthorUuid, params.PostId, err)
 	}
 
 	affectedRowsCount, err := res.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("error at updating comment (Id: %v, AuthorUuid: '%v', PostId: '%v'), case after counting affected rows: %s", params.Id, params.AuthorUuid, params.PostId, err)
+		return fmt.Errorf("error at updating comment (Id: %v, AuthorUuid: '%v', PostId: '%v'), case after counting affected rows: %w", params.Id, params.AuthorUuid, params.PostId, err)
 	}
 	if affectedRowsCount == 0 {
 		return sql.ErrNoRows
@@ -121,16 +120,16 @@ func UpdateComment(tx *sql.Tx, ctx context.Context, params *UpdateCommentParams)
 func DeleteComment(tx *sql.Tx, ctx context.Context, id int) error {
 	stmt, err := tx.PrepareContext(ctx, DELETE_COMMENT_QUERY)
 	if err != nil {
-		return fmt.Errorf("error at deleting comment, case after preparing statement: %s", err)
+		return fmt.Errorf("error at deleting comment, case after preparing statement: %w", err)
 	}
 	defer stmt.Close()
 	res, err := stmt.ExecContext(ctx, id, utilsEntities.COMMENT_STATE_DELETED)
 	if err != nil {
-		return fmt.Errorf("error at deleting comment by id '%d', case after executing statement: %s", id, err)
+		return fmt.Errorf("error at deleting comment by id '%v', case after executing statement: %w", id, err)
 	}
 	affectedRowsCount, err := res.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("error at deleting comment by id '%d', case after counting affected rows: %s", id, err)
+		return fmt.Errorf("error at deleting comment by id '%v', case after counting affected rows: %w", id, err)
 	}
 	if affectedRowsCount == 0 {
 		return sql.ErrNoRows

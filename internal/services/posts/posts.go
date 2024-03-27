@@ -3,6 +3,7 @@ package posts
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services/db/entities"
@@ -38,7 +39,7 @@ func (s *PostsService) Shutdown() error {
 		}
 	}
 	if len(result) > 0 {
-		return fmt.Errorf("errors during shutdown: %v", result)
+		return errors.Join(result...)
 	}
 	return nil
 }

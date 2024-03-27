@@ -317,7 +317,7 @@ func toComment(jsonStr string) (*CommentDTO, error) {
 	var result *CommentDTO
 	err := json.Unmarshal([]byte(jsonStr), &result)
 	if err != nil {
-		return result, fmt.Errorf("unable to unmarshal comment: %v", err)
+		return result, fmt.Errorf("unable to unmarshal comment: %w", err)
 	}
 	return result, nil
 }

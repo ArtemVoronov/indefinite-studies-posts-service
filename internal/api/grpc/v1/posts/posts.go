@@ -3,6 +3,7 @@ package posts
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/ArtemVoronov/indefinite-studies-posts-service/internal/services"
@@ -24,36 +25,30 @@ func RegisterServiceServer(s *grpc.Server) {
 
 func (s *PostsServiceServer) GetPost(ctx context.Context, in *posts.GetPostRequest) (*posts.GetPostReply, error) {
 	post, err := services.Instance().Posts().GetPostWithTags(in.GetUuid())
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf(api.PAGE_NOT_FOUND)
-		} else {
-			return nil, err
-		}
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf(api.PAGE_NOT_FOUND)
+	} else if err != nil {
+		return nil, err
 	}
 	return toGetPostReply(post), nil
 }
 
 func (s *PostsServiceServer) GetComment(ctx context.Context, in *posts.GetCommentRequest) (*posts.GetCommentReply, error) {
 	comment, err := services.Instance().Posts().GetComment(in.GetPostUuid(), int(in.GetId()))
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf(api.PAGE_NOT_FOUND)
-		} else {
-			return nil, err
-		}
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf(api.PAGE_NOT_FOUND)
+	} else if err != nil {
+		return nil, err
 	}
 	return toGetCommentReply(comment, in.GetPostUuid()), nil
 }
 
 func (s *PostsServiceServer) GetTag(ctx context.Context, in *posts.GetTagRequest) (*posts.GetTagReply, error) {
 	tag, err := services.Instance().Posts().GetTag(int(in.GetId()))
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf(api.PAGE_NOT_FOUND)
-		} else {
-			return nil, err
-		}
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf(api.PAGE_NOT_FOUND)
+	} else if err != nil {
+		return nil, err
 	}
 	return toGetTagReply(tag), nil
 }
@@ -64,12 +59,10 @@ func (s *PostsServiceServer) GetTags(ctx context.Context, in *posts.GetTagsReque
 
 	tagsList, err = services.Instance().Posts().GetTags(int(in.GetOffset()), int(in.GetLimit()))
 
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf(api.PAGE_NOT_FOUND)
-		} else {
-			return nil, err
-		}
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf(api.PAGE_NOT_FOUND)
+	} else if err != nil {
+		return nil, err
 	}
 
 	result := &posts.GetTagsReply{

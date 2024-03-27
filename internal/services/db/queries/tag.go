@@ -55,20 +55,20 @@ func GetTags(tx *sql.Tx, ctx context.Context, limit int, offset int) ([]entities
 
 	rows, err := tx.QueryContext(ctx, GET_TAGS_QUERY, limit, offset)
 	if err != nil {
-		return result, fmt.Errorf("error at loading tags from db, case after Query: %s", err)
+		return result, fmt.Errorf("error at loading tags from db, case after Query: %w", err)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
 		err := rows.Scan(&id, &name)
 		if err != nil {
-			return result, fmt.Errorf("error at loading tags from db, case iterating and using rows.Scan: %s", err)
+			return result, fmt.Errorf("error at loading tags from db, case iterating and using rows.Scan: %w", err)
 		}
 		result = append(result, entities.Tag{Id: id, Name: name})
 	}
 	err = rows.Err()
 	if err != nil {
-		return result, fmt.Errorf("error at loading tags from db, case after iterating: %s", err)
+		return result, fmt.Errorf("error at loading tags from db, case after iterating: %w", err)
 	}
 
 	return result, nil
@@ -79,12 +79,10 @@ func GetTag(tx *sql.Tx, ctx context.Context, id int) (entities.Tag, error) {
 
 	err := tx.QueryRowContext(ctx, GET_TAG_QUERY, id).
 		Scan(&result.Id, &result.Name)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return result, err
-		} else {
-			return result, fmt.Errorf("error at loading tag by id '%v' from db, case after QueryRow.Scan: %s", id, err)
-		}
+	if errors.Is(err, sql.ErrNoRows) {
+		return result, err
+	} else if err != nil {
+		return result, fmt.Errorf("error at loading tag by id '%v' from db, case after QueryRow.Scan: %w", id, err)
 	}
 
 	return result, nil
@@ -98,7 +96,7 @@ func CreateTag(tx *sql.Tx, ctx context.Context, name string) (int, error) {
 		if err.Error() == ErrorTagDuplicateKey.Error() {
 			return -1, ErrorTagDuplicateKey
 		}
-		return -1, fmt.Errorf("error at inserting tag (Name: '%v') into db, case after QueryRow.Scan: %s", name, err)
+		return -1, fmt.Errorf("error at inserting tag (Name: '%v') into db, case after QueryRow.Scan: %w", name, err)
 	}
 
 	return lastInsertId, nil
@@ -107,7 +105,7 @@ func CreateTag(tx *sql.Tx, ctx context.Context, name string) (int, error) {
 func UpdateTag(tx *sql.Tx, ctx context.Context, id int, newName string) error {
 	stmt, err := tx.PrepareContext(ctx, UPDATE_TAG_QUERY)
 	if err != nil {
-		return fmt.Errorf("error at updating tag, case after preparing statement: %s", err)
+		return fmt.Errorf("error at updating tag, case after preparing statement: %w", err)
 	}
 	defer stmt.Close()
 	res, err := stmt.ExecContext(ctx, id, newName)
@@ -115,12 +113,12 @@ func UpdateTag(tx *sql.Tx, ctx context.Context, id int, newName string) error {
 		if err.Error() == ErrorTagDuplicateKey.Error() {
 			return ErrorTagDuplicateKey
 		}
-		return fmt.Errorf("error at updating tag (Id: %v, NewName: '%v'), case after executing statement: %s", id, newName, err)
+		return fmt.Errorf("error at updating tag (Id: %v, NewName: '%v'), case after executing statement: %w", id, newName, err)
 	}
 
 	affectedRowsCount, err := res.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("error at updating tag (Id: %v, NewName: '%v', case after counting affected rows: %s", id, newName, err)
+		return fmt.Errorf("error at updating tag (Id: %v, NewName: '%v', case after counting affected rows: %w", id, newName, err)
 	}
 	if affectedRowsCount == 0 {
 		return sql.ErrNoRows
@@ -132,16 +130,16 @@ func UpdateTag(tx *sql.Tx, ctx context.Context, id int, newName string) error {
 func DeleteTag(tx *sql.Tx, ctx context.Context, id int) error {
 	stmt, err := tx.PrepareContext(ctx, DELETE_TAG_QUERY)
 	if err != nil {
-		return fmt.Errorf("error at deleting tag, case after preparing statement: %v", err)
+		return fmt.Errorf("error at deleting tag, case after preparing statement: %w", err)
 	}
 	defer stmt.Close()
 	res, err := stmt.ExecContext(ctx, id)
 	if err != nil {
-		return fmt.Errorf("error at deleting tag by id '%v', case after executing statement: %v", id, err)
+		return fmt.Errorf("error at deleting tag by id '%v', case after executing statement: %w", id, err)
 	}
 	affectedRowsCount, err := res.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("error at deleting tag by id '%v', case after counting affected rows: %v", id, err)
+		return fmt.Errorf("error at deleting tag by id '%v', case after counting affected rows: %w", id, err)
 	}
 	if affectedRowsCount == 0 {
 		return sql.ErrNoRows
@@ -152,13 +150,13 @@ func DeleteTag(tx *sql.Tx, ctx context.Context, id int) error {
 func AssignTagToPost(tx *sql.Tx, ctx context.Context, postId int, tagId int) error {
 	stmt, err := tx.PrepareContext(ctx, ASSIGN_TAG_TO_POST_QUERY)
 	if err != nil {
-		return fmt.Errorf("error at inserting to posts_and_tags (PostId: '%v', TagId: '%v'), case after preparing statement: %s", postId, tagId, err)
+		return fmt.Errorf("error at inserting to posts_and_tags (PostId: '%v', TagId: '%v'), case after preparing statement: %w", postId, tagId, err)
 	}
 	defer stmt.Close()
 
 	_, err = stmt.ExecContext(ctx, postId, tagId)
 	if err != nil {
-		return fmt.Errorf("error at inserting to posts_and_tags (PostId: '%v', TagId: '%v'), case after ExecContext: %s", postId, tagId, err)
+		return fmt.Errorf("error at inserting to posts_and_tags (PostId: '%v', TagId: '%v'), case after ExecContext: %w", postId, tagId, err)
 	}
 
 	return nil
@@ -167,16 +165,16 @@ func AssignTagToPost(tx *sql.Tx, ctx context.Context, postId int, tagId int) err
 func RemoveTagFromPost(tx *sql.Tx, ctx context.Context, postId int, tagId int) error {
 	stmt, err := tx.PrepareContext(ctx, REMOVE_TAG_FROM_POST_QUERY)
 	if err != nil {
-		return fmt.Errorf("error at deleting from posts_and_tags (PostId: '%v', TagId: '%v'), case after preparing statement: %v", postId, tagId, err)
+		return fmt.Errorf("error at deleting from posts_and_tags (PostId: '%v', TagId: '%v'), case after preparing statement: %w", postId, tagId, err)
 	}
 	defer stmt.Close()
 	res, err := stmt.ExecContext(ctx, postId, tagId)
 	if err != nil {
-		return fmt.Errorf("error at deleting from posts_and_tags (PostId: '%v', TagId: '%v'), case after executing statement: %v", postId, tagId, err)
+		return fmt.Errorf("error at deleting from posts_and_tags (PostId: '%v', TagId: '%v'), case after executing statement: %w", postId, tagId, err)
 	}
 	affectedRowsCount, err := res.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("error at deleting from posts_and_tags (PostId: '%v', TagId: '%v'), case after counting affected rows: %v", postId, tagId, err)
+		return fmt.Errorf("error at deleting from posts_and_tags (PostId: '%v', TagId: '%v'), case after counting affected rows: %w", postId, tagId, err)
 	}
 	if affectedRowsCount == 0 {
 		return sql.ErrNoRows
@@ -187,16 +185,16 @@ func RemoveTagFromPost(tx *sql.Tx, ctx context.Context, postId int, tagId int) e
 func RemoveAllTagsFromPost(tx *sql.Tx, ctx context.Context, postId int) error {
 	stmt, err := tx.PrepareContext(ctx, REMOVE_ALL_TAGS_FROM_POST_QUERY)
 	if err != nil {
-		return fmt.Errorf("error at deleting from posts_and_tags (PostId: '%v'), case after preparing statement: %v", postId, err)
+		return fmt.Errorf("error at deleting from posts_and_tags (PostId: '%v'), case after preparing statement: %w", postId, err)
 	}
 	defer stmt.Close()
 	res, err := stmt.ExecContext(ctx, postId)
 	if err != nil {
-		return fmt.Errorf("error at deleting from posts_and_tags (PostId: '%v'), case after executing statement: %v", postId, err)
+		return fmt.Errorf("error at deleting from posts_and_tags (PostId: '%v'), case after executing statement: %w", postId, err)
 	}
 	affectedRowsCount, err := res.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("error at deleting from posts_and_tags (PostId: '%v'), case after counting affected rows: %v", postId, err)
+		return fmt.Errorf("error at deleting from posts_and_tags (PostId: '%v'), case after counting affected rows: %w", postId, err)
 	}
 	if affectedRowsCount == 0 {
 		return sql.ErrNoRows
@@ -212,20 +210,20 @@ func GetTagIdsByPostId(tx *sql.Tx, ctx context.Context, postId int) ([]int, erro
 
 	rows, err := tx.QueryContext(ctx, GET_TAG_IDS_BY_POST_ID_QUERY, postId)
 	if err != nil {
-		return result, fmt.Errorf("error at loading tags from db, case after Query: %s", err)
+		return result, fmt.Errorf("error at loading tags from db, case after Query: %w", err)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
 		err := rows.Scan(&id)
 		if err != nil {
-			return result, fmt.Errorf("error at loading tags from db, case iterating and using rows.Scan: %s", err)
+			return result, fmt.Errorf("error at loading tags from db, case iterating and using rows.Scan: %w", err)
 		}
 		result = append(result, id)
 	}
 	err = rows.Err()
 	if err != nil {
-		return result, fmt.Errorf("error at loading tags from db, case after iterating: %s", err)
+		return result, fmt.Errorf("error at loading tags from db, case after iterating: %w", err)
 	}
 
 	return result, nil
@@ -246,20 +244,20 @@ func GetTagsByIds(tx *sql.Tx, ctx context.Context, tagIds []int) ([]entities.Tag
 
 	rows, err := tx.QueryContext(ctx, GET_TAGS_BY_IDS_QUERY, tagsStr)
 	if err != nil {
-		return result, fmt.Errorf("error at loading tags from db, case after Query: %s", err)
+		return result, fmt.Errorf("error at loading tags from db, case after Query: %w", err)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
 		err := rows.Scan(&id, &name)
 		if err != nil {
-			return result, fmt.Errorf("error at loading tags from db, case iterating and using rows.Scan: %s", err)
+			return result, fmt.Errorf("error at loading tags from db, case iterating and using rows.Scan: %w", err)
 		}
 		result = append(result, entities.Tag{Id: id, Name: name})
 	}
 	err = rows.Err()
 	if err != nil {
-		return result, fmt.Errorf("error at loading tags from db, case after iterating: %s", err)
+		return result, fmt.Errorf("error at loading tags from db, case after iterating: %w", err)
 	}
 
 	return result, nil
