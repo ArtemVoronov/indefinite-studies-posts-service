@@ -141,6 +141,30 @@ func UpdatePost(c *gin.Context) {
 	}
 
 	if dto.TagIds != nil {
+		if post.Post.State == utilsEntities.POST_STATE_PUBLISHED {
+			// then update preview and post at cache
+			postJSON, err := json.Marshal(convertPost(post))
+			if err != nil {
+				// TODO: create some daemon that catch unpublished posts
+				log.Error(fmt.Sprintf("Unable to convert post with uuid '%v' to JSON", post.Post.Uuid), err.Error())
+			}
+
+			err = services.PutToCache(buildCacheKey(post.Post.Uuid, false), string(postJSON))
+			if err != nil {
+				log.Error("Unable to put post into the cache", err.Error())
+			}
+
+			postJSON, err = json.Marshal(convertPostPreview(post))
+			if err != nil {
+				// TODO: create some daemon that catch unpublished posts
+				log.Error(fmt.Sprintf("Unable to convert post with uuid '%v' to JSON", post.Post.Uuid), err.Error())
+			}
+
+			err = services.PutToCache(buildCacheKey(post.Post.Uuid, true), string(postJSON))
+			if err != nil {
+				log.Error("Unable to put post into the cache", err.Error())
+			}
+		}
 		queueTopicsToNotify = append(queueTopicsToNotify, UpdatedPostsTagsTopic)
 	}
 
@@ -219,15 +243,15 @@ func getPost(c *gin.Context, isPreview bool) {
 		convertedPost = convertPost(post)
 	}
 
-	postJSON, err := json.Marshal(convertedPost)
-	if err != nil {
-		// TODO: create some daemon that catch unpublished posts
-		log.Error(fmt.Sprintf("Unable to convert post with uuid '%v' to JSON", post.Post.Uuid), err.Error())
-	}
-
-	result := string(postJSON)
-
 	if convertedPost.State == utilsEntities.POST_STATE_PUBLISHED {
+		postJSON, err := json.Marshal(convertedPost)
+		if err != nil {
+			// TODO: create some daemon that catch unpublished posts
+			log.Error(fmt.Sprintf("Unable to convert post with uuid '%v' to JSON", post.Post.Uuid), err.Error())
+		}
+
+		result := string(postJSON)
+
 		err = services.PutToCache(buildCacheKey(post.Post.Uuid, isPreview), result)
 		if err != nil {
 			log.Error("Unable to put post into the cache", err.Error())
